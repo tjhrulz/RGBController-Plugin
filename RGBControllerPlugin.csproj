@@ -92,6 +92,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="LogitechGSDK.cs" />
     <Compile Include="RGBControllerPlugin.cs" />
     <Compile Include="$(SolutionDir).\API\RainmeterAPI.cs" />
   </ItemGroup>
