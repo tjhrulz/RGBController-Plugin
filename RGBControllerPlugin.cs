@@ -41,6 +41,9 @@ namespace PluginRGBController
             String RGB = api.ReadString("Color", null);
             String RGB2 = api.ReadString("Color2", null);
 
+            String effect = api.ReadString("Effect", "static").ToUpper();
+            String device = api.ReadString("Device", "all").ToUpper();
+
             currentColor = RGB;
 
             if (RGB != null && RGB != "")
@@ -71,8 +74,6 @@ namespace PluginRGBController
                     API.Log(API.LogType.Error, "RGB Value(s) are malformed, correct form is R,G,B");
                     return;
                 }
-                String effect = api.ReadString("Effect", "static").ToUpper();
-                String device = api.ReadString("Device", "all").ToUpper();
 
                 if (effect.CompareTo(effectTypes.STATIC.ToString()) == 0)
                 {
@@ -114,17 +115,6 @@ namespace PluginRGBController
                 //        Mouse.Instance.SetBlinking(new Blinking(Led.All, RGBColor));
                 //    }
                 //}
-                else if (effect.CompareTo(effectTypes.SPECTRUM.ToString()) == 0)
-                {
-                    if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
-                    {
-                        Mouse.Instance.SetSpectrumCycling(new SpectrumCycling(Led.All));
-                    }
-                    else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
-                    {
-                        Headset.Instance.SetEffect(Corale.Colore.Razer.Headset.Effects.Effect.SpectrumCycling);
-                    }
-                }
                 else if (effect.CompareTo(effectTypes.REACTIVE.ToString()) == 0)
                 {
                     if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
@@ -140,6 +130,17 @@ namespace PluginRGBController
                         //TODO Add user defined direction
                         Mouse.Instance.SetWave(new Wave(Direction.FrontToBack));
                     }
+                }
+            }
+            else if (effect.CompareTo(effectTypes.SPECTRUM.ToString()) == 0)
+            {
+                if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
+                {
+                    Mouse.Instance.SetSpectrumCycling(new SpectrumCycling(Led.All));
+                }
+                else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
+                {
+                    Headset.Instance.SetEffect(Corale.Colore.Razer.Headset.Effects.Effect.SpectrumCycling);
                 }
             }
         }
