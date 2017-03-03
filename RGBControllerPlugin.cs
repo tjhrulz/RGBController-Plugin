@@ -54,6 +54,10 @@ namespace PluginRGBController
         String percentMax = "100";
         String percentMin = "0";
 
+
+        Boolean dynamicMouseStrip = false;
+        String mouseTarget = "all";
+
         void UpdateColor(String RGB, String RGB2, String effect, String device, double percent)
         {
             currentColor = RGB;
@@ -147,7 +151,55 @@ namespace PluginRGBController
                 if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                 {
                     //TODO add option to also scale leds that are targeted based on percent
-                    Mouse.Instance.SetStatic(new Corale.Colore.Razer.Mouse.Effects.Static(Led.All, blendedColor));
+                    //SetStaic seems to not work on an idividual LED basis and just updates the whole mouse so I am using SetLED
+                    if (!dynamicMouseStrip)
+                    {
+                        Mouse.Instance.SetStatic(new Corale.Colore.Razer.Mouse.Effects.Static(Led.All, blendedColor));
+                    }
+                    else
+                    {
+                        if (mouseTarget == null || mouseTarget.ToUpper().CompareTo("ALL") == 0 || mouseTarget == "")
+                        {
+                            //+1 is so that we use the count of LEDs
+                            int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
+
+
+                            Mouse.Instance.SetLed(Led.Backlight, blendedColor);
+                            Mouse.Instance.SetLed(Led.Logo, blendedColor);
+                            Mouse.Instance.SetLed(Led.ScrollWheel, blendedColor);
+
+                            for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
+                            {
+                                //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
+
+                                //Go through left side
+                                if (i < midPoint + (int)Led.Strip1)
+                                {
+                                    if ((double)(i - (int)Led.Strip1) / midPoint < percent)
+                                    {
+                                        Mouse.Instance.SetLed((Led)i, blendedColor, false);
+                                    }
+                                    else
+                                    {
+                                        Mouse.Instance.SetLed((Led)i, new Color(0, 0, 0), false);
+                                    }
+                                }
+                                //Go through  right side
+                                else
+                                {
+                                    if ((double)(i - (int)Led.Strip1 - midPoint) / midPoint < percent)
+                                    {
+                                        Mouse.Instance.SetLed((Led)i, blendedColor, false);
+                                    }
+                                    else
+                                    {
+                                        Mouse.Instance.SetLed((Led)i, new Color(0, 0, 0), false);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                 }
                 else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
                 {
@@ -278,6 +330,8 @@ namespace PluginRGBController
             String percentString = api.ReadString("Percent", null);
             percentMax = api.ReadString("PercentMax", "100");
             percentMin = api.ReadString("PercentMin", "0");
+
+            dynamicMouseStrip = Convert.ToBoolean(Convert.ToInt16(api.ReadString("MouseStripsUsePercent", "0")));
 
             double percent = 0.0;
 
