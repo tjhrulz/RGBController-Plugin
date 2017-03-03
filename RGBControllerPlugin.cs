@@ -48,10 +48,10 @@ namespace PluginRGBController
 
         String currentColor = "";
         String lastUpdate = "";
+        String device = "";
 
         void UpdateColor(String RGB, String RGB2, String effect, String device)
         {
-
             if (device.CompareTo("ALL") == 0)
             {
                 foreach (deviceTypes currDevice in Enum.GetValues(typeof(deviceTypes)))
@@ -135,7 +135,7 @@ namespace PluginRGBController
                 {
                     if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                     {
-                        if (RGB2 == null)
+                        if (RGB2 == null || RGB2 == "")
                         {
                             Mouse.Instance.SetBreathing(new Corale.Colore.Razer.Mouse.Effects.Breathing(Led.All, RGBColor));
                         }
@@ -202,12 +202,12 @@ namespace PluginRGBController
             String RGB2 = api.ReadString("Color2", null);
 
             String effect = api.ReadString("Effect", "static").ToUpper();
-            String device = api.ReadString("Device", "all").ToUpper();
+            device = api.ReadString("Device", "all").ToUpper();
 
             currentColor = RGB;
 
 
-            API.Log(API.LogType.Notice, api.ReadString("Percent", null));
+            //API.Log(API.LogType.Notice, api.ReadString("Percent", null));
 
             //Check if anything has changed since last update
             if (lastUpdate != RGB + RGB2 + effect + device)
@@ -229,6 +229,22 @@ namespace PluginRGBController
 
         internal void ExecuteBang(string args)
         {
+            String[] argArr = args.Split( new char[] { ' ', ':' } );
+
+            String effect = argArr[0].ToUpper();
+            String RGB = argArr[1].ToUpper();
+            String RGB2 = null;
+
+            if (argArr.Length >= 3)
+            {
+                RGB2 = argArr[2].ToUpper();
+            }
+
+            if (lastUpdate != RGB + RGB2 + effect + device)
+            {
+                UpdateColor(RGB, RGB2, effect, device);
+                lastUpdate = RGB + RGB2 + effect + device;
+            }
         }
     }
 
