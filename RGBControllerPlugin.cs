@@ -52,7 +52,14 @@ namespace PluginRGBController
         void UpdateColor(String RGB, String RGB2, String effect, String device)
         {
 
-            if (effect.CompareTo(effectTypes.SPECTRUM.ToString()) == 0)
+            if (device.CompareTo("ALL") == 0)
+            {
+                foreach (deviceTypes currDevice in Enum.GetValues(typeof(deviceTypes)))
+                {
+                    UpdateColor(RGB, RGB2, effect, currDevice.ToString());
+                }
+            }
+            else if (effect.CompareTo(effectTypes.SPECTRUM.ToString()) == 0)
             {
                 if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                 {
@@ -238,6 +245,10 @@ namespace PluginRGBController
         [DllExport]
         public static void Finalize(IntPtr data)
         {
+            Mouse.Instance.Clear();
+            Headset.Instance.Clear();
+            Keyboard.Instance.Clear();
+
             GCHandle.FromIntPtr(data).Free();
 
             if (StringBuffer != IntPtr.Zero)
