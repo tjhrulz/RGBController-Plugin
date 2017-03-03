@@ -8,6 +8,9 @@ using Corale.Colore.Core;
 using Corale.Colore.Razer.Mouse;
 using Corale.Colore.Razer.Mouse.Effects;
 
+using Corale.Colore.Razer.Headset;
+using Corale.Colore.Razer.Headset.Effects;
+
 namespace PluginRGBController
 {
     internal class Measure
@@ -23,8 +26,11 @@ namespace PluginRGBController
         }
         enum deviceTypes
         {
-            MOUSE
+            MOUSE,
+            HEADSET
         }
+
+        String currentColor = "";
 
         internal Measure()
         {
@@ -35,7 +41,9 @@ namespace PluginRGBController
             String RGB = api.ReadString("Color", null);
             String RGB2 = api.ReadString("Color2", null);
 
-            if (RGB != null)
+            currentColor = RGB;
+
+            if (RGB != null && RGB != "")
             {
                 Color RGBColor, RGBColor2 = new Color();
 
@@ -49,7 +57,7 @@ namespace PluginRGBController
                         RGBColor = new Color(R, G, B);
                     }
 
-                    if (RGB2 != null)
+                    if (RGB2 != null && RGB2 != "")
                     {
                         String[] RGBarr = RGB2.Split(',');
                         byte R = Convert.ToByte(RGBarr[0]);
@@ -70,24 +78,33 @@ namespace PluginRGBController
                 {
                     if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                     {
-                        Mouse.Instance.SetStatic(new Static(Led.All, RGBColor));
+                        Mouse.Instance.SetStatic(new Corale.Colore.Razer.Mouse.Effects.Static(Led.All, RGBColor));
+                    }
+                    else if(device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
+                    {
+                        Headset.Instance.SetStatic(new Corale.Colore.Razer.Headset.Effects.Static(RGBColor));
                     }
                 }
                 else if (effect.CompareTo(effectTypes.BREATHING.ToString()) == 0)
                 {
-                    if (RGB2 == null)
+                    if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                     {
-                        if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
+                        if (RGB2 == null)
                         {
-                            Mouse.Instance.SetBreathing(new Breathing(Led.All, RGBColor));
+                            Mouse.Instance.SetBreathing(new Corale.Colore.Razer.Mouse.Effects.Breathing(Led.All, RGBColor));
+                        }
+                        else
+                        {
+                            currentColor += ":" + RGB2;
+                            if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
+                            {
+                                Mouse.Instance.SetBreathing(new Corale.Colore.Razer.Mouse.Effects.Breathing(Led.All, RGBColor, RGBColor2));
+                            }
                         }
                     }
-                    else
+                    else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
                     {
-                        if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
-                        {
-                            Mouse.Instance.SetBreathing(new Breathing(Led.All, RGBColor, RGBColor2));
-                        }
+                        Headset.Instance.SetBreathing(new Corale.Colore.Razer.Headset.Effects.Breathing(RGBColor));
                     }
                 }
                 //else if (effect.CompareTo(effectTypes.BLINKING.ToString()) == 0)
@@ -102,6 +119,10 @@ namespace PluginRGBController
                     if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                     {
                         Mouse.Instance.SetSpectrumCycling(new SpectrumCycling(Led.All));
+                    }
+                    else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
+                    {
+                        Headset.Instance.SetEffect(Corale.Colore.Razer.Headset.Effects.Effect.SpectrumCycling);
                     }
                 }
                 else if (effect.CompareTo(effectTypes.REACTIVE.ToString()) == 0)
@@ -125,7 +146,7 @@ namespace PluginRGBController
 
         internal double Update()
         {
-            return Color.Blue;
+            return 0.0;
         }
 
         internal string GetString()
