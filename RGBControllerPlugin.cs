@@ -25,7 +25,8 @@ namespace PluginRGBController
             //BLINKING,
             WAVE,
             SPECTRUM,
-            REACTIVE
+            REACTIVE,
+            GRADIENT
         }
         enum deviceTypes
         {
@@ -50,13 +51,13 @@ namespace PluginRGBController
         String lastUpdate = "";
         String device = "";
 
-        void UpdateColor(String RGB, String RGB2, String effect, String device)
+        void UpdateColor(String RGB, String RGB2, String effect, String device, double percent)
         {
             if (device.CompareTo("ALL") == 0)
             {
                 foreach (deviceTypes currDevice in Enum.GetValues(typeof(deviceTypes)))
                 {
-                    UpdateColor(RGB, RGB2, effect, currDevice.ToString());
+                    UpdateColor(RGB, RGB2, effect, currDevice.ToString(), percent);
                 }
             }
             else if (effect.CompareTo(effectTypes.SPECTRUM.ToString()) == 0)
@@ -85,6 +86,67 @@ namespace PluginRGBController
                 {
                     //TODO Add user defined direction
                     Keyboard.Instance.SetWave(new Corale.Colore.Razer.Keyboard.Effects.Wave(Corale.Colore.Razer.Keyboard.Effects.Direction.LeftToRight));
+                }
+            }
+            else if (effect.CompareTo(effectTypes.GRADIENT.ToString()) == 0)
+            {
+                //I am debating two different ways to do this
+
+                //The first trys to maintain a bright color however it would make the transition between to dim colors get birght in between
+                //0 percent is 100% color1
+                //100 percent is 100% color2
+                //50 percent is color1 + color2 and if any value is higher than 255 then all colors are rescaled to relative that value
+                //So if color1 is 255,255,0 and color2 is 0,255,255 the midpoint would be 122,255,122
+                //The 25% point would be 255,319,64 which would scale to 204,255,51
+
+                //The second blends colors better but would get dimmer in between
+                //0 percent is 100% color1
+                //100 percent is 100% color2
+                //50 percent is 50% color1 + 50% color2
+                //25 percent is 75% color1 + 25% color2
+
+                //Currently the second one is the one used and it seems to work well enough
+                Color RGBColor, RGBColor2 = new Color(0,0,0);
+
+                try
+                {
+                    {
+                        String[] RGBarr = RGB.Split(',');
+                        byte R = Convert.ToByte(RGBarr[0]);
+                        byte G = Convert.ToByte(RGBarr[1]);
+                        byte B = Convert.ToByte(RGBarr[2]);
+                        RGBColor = new Color(R, G, B);
+                    }
+
+                    if (RGB2 != null && RGB2 != "")
+                    {
+                        String[] RGBarr = RGB2.Split(',');
+                        byte R = Convert.ToByte(RGBarr[0]);
+                        byte G = Convert.ToByte(RGBarr[1]);
+                        byte B = Convert.ToByte(RGBarr[2]);
+                        RGBColor2 = new Color(R, G, B);
+                    }
+                }
+                catch
+                {
+                    API.Log(API.LogType.Error, "RGB Value(s) are malformed, correct form is R,G,B");
+                    return;
+                }
+
+                Color blendedColor = new Color((byte)(RGBColor.R * (1.0 - percent) + RGBColor2.R * percent), (byte)(RGBColor.G * (1.0 - percent) + RGBColor2.G * percent), (byte)(RGBColor.B * (1.0 - percent) + RGBColor2.B * percent));
+
+                if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
+                {
+                    //TODO add option to also scale leds that are targeted based on percent
+                    Mouse.Instance.SetStatic(new Corale.Colore.Razer.Mouse.Effects.Static(Led.All, blendedColor));
+                }
+                else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
+                {
+                    Headset.Instance.SetStatic(new Corale.Colore.Razer.Headset.Effects.Static(blendedColor));
+                }
+                else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
+                {
+                    Keyboard.Instance.SetStatic(new Corale.Colore.Razer.Keyboard.Effects.Static(blendedColor));
                 }
             }
             else if (RGB != null && RGB != "")
@@ -204,16 +266,23 @@ namespace PluginRGBController
             String effect = api.ReadString("Effect", "static").ToUpper();
             device = api.ReadString("Device", "all").ToUpper();
 
-            currentColor = RGB;
+            String percentString = api.ReadString("Percent", null);
+            String percentMax = api.ReadString("PercentMax", "100");
+            String percentMin = api.ReadString("PercentMin", "0");
 
+            double percent = 0.0;
 
-            //API.Log(API.LogType.Notice, api.ReadString("Percent", null));
-
-            //Check if anything has changed since last update
-            if (lastUpdate != RGB + RGB2 + effect + device)
+            if(percentString != null && percentString !="")
             {
-                UpdateColor(RGB, RGB2, effect, device);
-                lastUpdate = RGB + RGB2 + effect + device;
+                percent = (Convert.ToDouble(percentString) - Convert.ToDouble(percentMin)) / (Convert.ToDouble(percentMax) - Convert.ToDouble(percentMin));
+            }
+
+            currentColor = RGB;
+            //Check if anything has changed since last update
+            if (lastUpdate != RGB + RGB2 + effect + device + percent)
+            {
+                UpdateColor(RGB, RGB2, effect, device, percent);
+                lastUpdate = RGB + RGB2 + effect + device + percent;
             }
         }
 
@@ -240,10 +309,13 @@ namespace PluginRGBController
                 RGB2 = argArr[2].ToUpper();
             }
 
-            if (lastUpdate != RGB + RGB2 + effect + device)
+            //TODO add support for bangs to use gradient
+            double percent = 0.0;
+
+            if (lastUpdate != RGB + RGB2 + effect + device + percent)
             {
-                UpdateColor(RGB, RGB2, effect, device);
-                lastUpdate = RGB + RGB2 + effect + device;
+                UpdateColor(RGB, RGB2, effect, device, percent);
+                lastUpdate = RGB + RGB2 + effect + device + percent;
             }
         }
     }
