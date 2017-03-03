@@ -49,10 +49,14 @@ namespace PluginRGBController
 
         String currentColor = "";
         String lastUpdate = "";
+
         String device = "";
+        String percentMax = "100";
+        String percentMin = "0";
 
         void UpdateColor(String RGB, String RGB2, String effect, String device, double percent)
         {
+            currentColor = RGB;
             if (device.CompareTo("ALL") == 0)
             {
                 foreach (deviceTypes currDevice in Enum.GetValues(typeof(deviceTypes)))
@@ -126,6 +130,10 @@ namespace PluginRGBController
                         byte B = Convert.ToByte(RGBarr[2]);
                         RGBColor2 = new Color(R, G, B);
                     }
+                    else
+                    {
+                        RGB2 = "0,0,0";
+                    }
                 }
                 catch
                 {
@@ -134,6 +142,7 @@ namespace PluginRGBController
                 }
 
                 Color blendedColor = new Color((byte)(RGBColor.R * (1.0 - percent) + RGBColor2.R * percent), (byte)(RGBColor.G * (1.0 - percent) + RGBColor2.G * percent), (byte)(RGBColor.B * (1.0 - percent) + RGBColor2.B * percent));
+                currentColor += ":" + RGB2;
 
                 if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                 {
@@ -267,8 +276,8 @@ namespace PluginRGBController
             device = api.ReadString("Device", "all").ToUpper();
 
             String percentString = api.ReadString("Percent", null);
-            String percentMax = api.ReadString("PercentMax", "100");
-            String percentMin = api.ReadString("PercentMin", "0");
+            percentMax = api.ReadString("PercentMax", "100");
+            percentMin = api.ReadString("PercentMin", "0");
 
             double percent = 0.0;
 
@@ -276,8 +285,7 @@ namespace PluginRGBController
             {
                 percent = (Convert.ToDouble(percentString) - Convert.ToDouble(percentMin)) / (Convert.ToDouble(percentMax) - Convert.ToDouble(percentMin));
             }
-
-            currentColor = RGB;
+            
             //Check if anything has changed since last update
             if (lastUpdate != RGB + RGB2 + effect + device + percent)
             {
@@ -293,7 +301,7 @@ namespace PluginRGBController
 
         internal string GetString()
         {
-            return Color.Blue.ToString();
+            return currentColor;
         }
 
         internal void ExecuteBang(string args)
@@ -301,21 +309,43 @@ namespace PluginRGBController
             String[] argArr = args.Split( new char[] { ' ', ':' } );
 
             String effect = argArr[0].ToUpper();
-            String RGB = argArr[1].ToUpper();
-            String RGB2 = null;
 
-            if (argArr.Length >= 3)
+            //TODO add support for percent min and max on gradient bangs
+            if (effect.CompareTo(effectTypes.GRADIENT.ToString()) == 0)
             {
-                RGB2 = argArr[2].ToUpper();
+                double percent = Convert.ToDouble(argArr[1]);
+                percent = (percent - Convert.ToDouble(percentMin)) / (Convert.ToDouble(percentMax) - Convert.ToDouble(percentMin));
+
+                String RGB = argArr[2].ToUpper();
+                String RGB2 = null;
+
+                if (argArr.Length >= 4)
+                {
+                    RGB2 = argArr[3].ToUpper();
+                }
+
+                if (lastUpdate != RGB + RGB2 + effect + device + percent)
+                {
+                    UpdateColor(RGB, RGB2, effect, device, percent);
+                    lastUpdate = RGB + RGB2 + effect + device + percent;
+                }
             }
-
-            //TODO add support for bangs to use gradient
-            double percent = 0.0;
-
-            if (lastUpdate != RGB + RGB2 + effect + device + percent)
+            else
             {
-                UpdateColor(RGB, RGB2, effect, device, percent);
-                lastUpdate = RGB + RGB2 + effect + device + percent;
+                String RGB = argArr[1].ToUpper();
+                String RGB2 = null;
+
+                if (argArr.Length >= 3)
+                {
+                    RGB2 = argArr[2].ToUpper();
+                }
+                double percent = 0.0;
+
+                if (lastUpdate != RGB + RGB2 + effect + device + percent)
+                {
+                    UpdateColor(RGB, RGB2, effect, device, percent);
+                    lastUpdate = RGB + RGB2 + effect + device + percent;
+                }
             }
         }
     }
