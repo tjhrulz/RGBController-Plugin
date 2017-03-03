@@ -47,6 +47,7 @@ namespace PluginRGBController
         }
 
         String currentColor = "";
+        String lastUpdate = "";
 
         void UpdateColor(String RGB, String RGB2, String effect, String device)
         {
@@ -198,7 +199,15 @@ namespace PluginRGBController
 
             currentColor = RGB;
 
-            UpdateColor(RGB, RGB2, effect, device);
+
+            API.Log(API.LogType.Notice, api.ReadString("Percent", null));
+
+            //Check if anything has changed since last update
+            if (lastUpdate != RGB + RGB2 + effect + device)
+            {
+                UpdateColor(RGB, RGB2, effect, device);
+                lastUpdate = RGB + RGB2 + effect + device;
+            }
         }
 
         internal double Update()
