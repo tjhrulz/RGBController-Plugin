@@ -162,8 +162,7 @@ namespace PluginRGBController
                         {
                             //+1 is so that we use the count of LEDs
                             int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
-
-
+                            
                             Mouse.Instance.SetLed(Led.Backlight, blendedColor);
                             Mouse.Instance.SetLed(Led.Logo, blendedColor);
                             Mouse.Instance.SetLed(Led.ScrollWheel, blendedColor);
@@ -175,7 +174,8 @@ namespace PluginRGBController
                                 //Go through left side
                                 if (i < midPoint + (int)Led.Strip1)
                                 {
-                                    if ((double)(i - (int)Led.Strip1) / midPoint < percent)
+                                    //Plus one so the top light is not missed
+                                    if (1-(double)(i - (int)Led.Strip1+1) / midPoint < percent)
                                     {
                                         Mouse.Instance.SetLed((Led)i, blendedColor, false);
                                     }
@@ -187,7 +187,8 @@ namespace PluginRGBController
                                 //Go through  right side
                                 else
                                 {
-                                    if ((double)(i - (int)Led.Strip1 - midPoint) / midPoint < percent)
+                                    //Plus one so the top light is not missed
+                                    if (1 - (double)(i - (int)Led.Strip1 - midPoint+1) / midPoint < percent)
                                     {
                                         Mouse.Instance.SetLed((Led)i, blendedColor, false);
                                     }
