@@ -56,7 +56,8 @@ namespace PluginRGBController
 
 
         Boolean dynamicMouseStrip = false;
-        String mouseTarget = "all";
+        String mouseTarget = "ALL";
+        static Color[] currMouseColor = new Color[30];
 
         void UpdateColor(String RGB, String RGB2, String effect, String device, double percent)
         {
@@ -150,27 +151,26 @@ namespace PluginRGBController
 
                 if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                 {
-                    //TODO add option to also scale leds that are targeted based on percent
-                    //SetStaic seems to not work on an idividual LED basis and just updates the whole mouse so I am using SetLED
+                    //Uses a global array of LED colors. Since each side can be targeted independently it just updates its part of the array.
+                    //Supports targeting the all LEDs, Left side, Right side, or just the logo backlight and scrollwheel
+
                     if (!dynamicMouseStrip)
                     {
                         Mouse.Instance.SetStatic(new Corale.Colore.Razer.Mouse.Effects.Static(Led.All, blendedColor));
                     }
                     else
                     {
-                        if (mouseTarget == null || mouseTarget.ToUpper().CompareTo("ALL") == 0 || mouseTarget == "")
+
+                        if (mouseTarget == null || mouseTarget.CompareTo("ALL") == 0 || mouseTarget == "")
                         {
                             //+1 is so that we use the count of LEDs
                             int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
 
+                            currMouseColor[(int)Led.Backlight] = blendedColor;
+                            currMouseColor[(int)Led.Logo] = blendedColor;
+                            currMouseColor[(int)Led.ScrollWheel] = blendedColor;
 
-                            Color[] colorArr = new Color[30];
 
-                            colorArr[(int)Led.Backlight] = blendedColor;
-                            colorArr[(int)Led.Logo] = blendedColor;
-                            colorArr[(int)Led.ScrollWheel] = blendedColor;
-
-                           
                             for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
                             {
                                 //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
@@ -180,13 +180,13 @@ namespace PluginRGBController
                                 {
                                     //Plus one so the top light is not missed
                                     //Minus one so that it goes from bottom to top and not top to bottom
-                                    if (1- (double)(i - (int)Led.Strip1+1) / midPoint < percent)
+                                    if (1 - (double)(i - (int)Led.Strip1 + 1) / midPoint < percent)
                                     {
-                                        colorArr[i] = blendedColor;
+                                        currMouseColor[i] = blendedColor;
                                     }
                                     else
                                     {
-                                        colorArr[i] = new Color(0, 0, 0);
+                                        currMouseColor[i] = new Color(0, 0, 0);
                                     }
                                 }
                                 //Go through  right side
@@ -194,19 +194,78 @@ namespace PluginRGBController
                                 {
                                     //Plus one so the top light is not missed
                                     //Minus one so that it goes from bottom to top and not top to bottom
-                                    if (1 - (double)(i - (int)Led.Strip1 - midPoint+1) / midPoint < percent)
+                                    if (1 - (double)(i - (int)Led.Strip1 - midPoint + 1) / midPoint < percent)
                                     {
-                                        colorArr[i] = blendedColor;
+                                        currMouseColor[i] = blendedColor;
                                     }
                                     else
                                     {
-                                        colorArr[i] = new Color(0, 0, 0);
+                                        currMouseColor[i] = new Color(0, 0, 0);
                                     }
                                 }
                             }
-                            Corale.Colore.Razer.Mouse.Effects.Custom gradient = new Corale.Colore.Razer.Mouse.Effects.Custom(colorArr);
-                            Mouse.Instance.SetCustom(gradient);
                         }
+                        else if (mouseTarget.CompareTo("LEFT") == 0)
+                        {
+                            //+1 is so that we use the count of LEDs
+                            int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
+
+
+                            for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
+                            {
+                                //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
+
+                                //Go through left side
+                                if (i < midPoint + (int)Led.Strip1)
+                                {
+                                    //Plus one so the top light is not missed
+                                    //Minus one so that it goes from bottom to top and not top to bottom
+                                    if (1 - (double)(i - (int)Led.Strip1 + 1) / midPoint < percent)
+                                    {
+                                        currMouseColor[i] = blendedColor;
+                                    }
+                                    else
+                                    {
+                                        currMouseColor[i] = new Color(0, 0, 0);
+                                    }
+                                }
+                            }
+                        }
+                        else if (mouseTarget.CompareTo("RIGHT") == 0)
+                        {
+                            //+1 is so that we use the count of LEDs
+                            int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
+
+
+                            for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
+                            {
+                                //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
+
+                                //Go through right side
+                                if (i > midPoint + (int)Led.Strip1)
+                                { 
+                                    //Plus one so the top light is not missed
+                                    //Minus one so that it goes from bottom to top and not top to bottom
+                                    if (1 - (double)(i - (int)Led.Strip1 - midPoint + 1) / midPoint < percent)
+                                    {
+                                        currMouseColor[i] = blendedColor;
+                                    }
+                                    else
+                                    {
+                                        currMouseColor[i] = new Color(0, 0, 0);
+                                    }
+                                }
+                            }
+                        }
+                    else if(mouseTarget.CompareTo("EXTRA") == 0)
+                    {
+                        currMouseColor[(int)Led.Backlight] = blendedColor;
+                        currMouseColor[(int)Led.Logo] = blendedColor;
+                        currMouseColor[(int)Led.ScrollWheel] = blendedColor;
+                    }
+
+                        Corale.Colore.Razer.Mouse.Effects.Custom gradient = new Corale.Colore.Razer.Mouse.Effects.Custom(currMouseColor);
+                        Mouse.Instance.SetCustom(gradient);
                     }
 
                 }
@@ -341,6 +400,7 @@ namespace PluginRGBController
             percentMin = api.ReadString("PercentMin", "0");
 
             dynamicMouseStrip = Convert.ToBoolean(Convert.ToInt16(api.ReadString("MouseStripsUsePercent", "0")));
+            mouseTarget = api.ReadString("MouseTarget", "all").ToUpper();
 
             double percent = 0.0;
 
