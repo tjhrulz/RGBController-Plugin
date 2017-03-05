@@ -162,11 +162,15 @@ namespace PluginRGBController
                         {
                             //+1 is so that we use the count of LEDs
                             int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
-                            
-                            Mouse.Instance.SetLed(Led.Backlight, blendedColor);
-                            Mouse.Instance.SetLed(Led.Logo, blendedColor);
-                            Mouse.Instance.SetLed(Led.ScrollWheel, blendedColor);
 
+
+                            Color[] colorArr = new Color[30];
+
+                            colorArr[(int)Led.Backlight] = blendedColor;
+                            colorArr[(int)Led.Logo] = blendedColor;
+                            colorArr[(int)Led.ScrollWheel] = blendedColor;
+
+                           
                             for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
                             {
                                 //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
@@ -175,29 +179,33 @@ namespace PluginRGBController
                                 if (i < midPoint + (int)Led.Strip1)
                                 {
                                     //Plus one so the top light is not missed
-                                    if (1-(double)(i - (int)Led.Strip1+1) / midPoint < percent)
+                                    //Minus one so that it goes from bottom to top and not top to bottom
+                                    if (1- (double)(i - (int)Led.Strip1+1) / midPoint < percent)
                                     {
-                                        Mouse.Instance.SetLed((Led)i, blendedColor, false);
+                                        colorArr[i] = blendedColor;
                                     }
                                     else
                                     {
-                                        Mouse.Instance.SetLed((Led)i, new Color(0, 0, 0), false);
+                                        colorArr[i] = new Color(0, 0, 0);
                                     }
                                 }
                                 //Go through  right side
                                 else
                                 {
                                     //Plus one so the top light is not missed
+                                    //Minus one so that it goes from bottom to top and not top to bottom
                                     if (1 - (double)(i - (int)Led.Strip1 - midPoint+1) / midPoint < percent)
                                     {
-                                        Mouse.Instance.SetLed((Led)i, blendedColor, false);
+                                        colorArr[i] = blendedColor;
                                     }
                                     else
                                     {
-                                        Mouse.Instance.SetLed((Led)i, new Color(0, 0, 0), false);
+                                        colorArr[i] = new Color(0, 0, 0);
                                     }
                                 }
                             }
+                            Corale.Colore.Razer.Mouse.Effects.Custom gradient = new Corale.Colore.Razer.Mouse.Effects.Custom(colorArr);
+                            Mouse.Instance.SetCustom(gradient);
                         }
                     }
 
