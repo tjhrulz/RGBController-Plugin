@@ -34,6 +34,20 @@ namespace PluginRGBController
             HEADSET,
             KEYBOARD
         }
+
+        String currentColor = "";
+        String lastUpdate = "";
+
+        String device = "";
+        String percentMax = "100";
+        String percentMin = "0";
+
+
+        Boolean dynamicMouseStrip = false;
+        String mouseTarget = "ALL";
+        static Color[] currMouseColor = new Color[30];
+
+        String keyboardTarget = "ALL";
         enum keyboardGroups
         {
             MAIN, //The normal keys
@@ -47,17 +61,37 @@ namespace PluginRGBController
             CUSTOM //A set of custom keys to change defined in the rainmeter measure using the option keylist (comma or space seperated)
         }
 
-        String currentColor = "";
-        String lastUpdate = "";
+        static List<Key> wasdKeys = new List<Key> { Key.W, Key.A, Key.S, Key.D };
+        static List<Key> numberKeys = new List<Key> { Key.OemTilde, Key.D0, Key.D1, Key.D2, Key.D3, Key.D4, Key.D5, Key.D6, Key.D7, Key.D8, Key.D9, Key.D0, Key.OemMinus, Key.OemEquals, Key.Backspace };
+        static List<Key> qwertyKeys = new List<Key> { Key.Tab, Key.Q, Key.W, Key.E, Key.R, Key.T, Key.Y, Key.U, Key.I, Key.O, Key.P, Key.OemLeftBracket, Key.OemRightBracket, Key.OemBackslash };
+        static List<Key> qwertyNoWASDKeys = new List<Key> { Key.Tab, Key.Q, Key.W, Key.E, Key.R, Key.T, Key.Y, Key.U, Key.I, Key.O, Key.P, Key.OemLeftBracket, Key.OemRightBracket, Key.OemBackslash };
+        static List<Key> asdfKeys = new List<Key> { Key.CapsLock, Key.A, Key.S, Key.D, Key.F, Key.G, Key.H, Key.J, Key.K, Key.L, Key.OemSemicolon, Key.OemApostrophe, Key.Enter };
+        static List<Key> asdfNoWASDKeys = new List<Key> { Key.CapsLock, Key.F, Key.G, Key.H, Key.J, Key.K, Key.L, Key.OemSemicolon, Key.OemApostrophe, Key.Enter };
+        static List<Key> zxcvKeys = new List<Key> { Key.LeftShift, Key.Z, Key.X, Key.C, Key.V, Key.B, Key.N, Key.M, Key.OemComma, Key.OemPeriod, Key.OemSlash, Key.RightShift};
+        static List<Key> ctrlKeys = new List<Key> { Key.LeftControl, Key.LeftWindows, Key.LeftAlt, Key.Space, Key.RightAlt, Key.Function, Key.RightMenu, Key.RightControl };
+        static List<Key> fnKeys = new List<Key> { Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6, Key.F7, Key.F8, Key.F9, Key.F10, Key.F11, Key.F12 };
+        static List<Key> escapeKey = new List<Key> { Key.Escape };
+        static List<Key> sysKeys = new List<Key> { Key.PrintScreen, Key.Scroll, Key.Pause };
+        static List<Key> macroKeys = new List<Key> { Key.Macro1, Key.Macro2, Key.Macro3, Key.Macro4, Key.Macro5 };
+        static List<Key> manipKeys = new List<Key> { Key.Insert, Key.Home, Key.PageUp, Key.Delete, Key.End, Key.PageDown };
+        static List<Key> arrowKeys = new List<Key> { Key.Up, Key.Left, Key.Down, Key.Right };
+        static List<Key> numpadKeys = new List<Key> { Key.NumLock, Key.NumDivide, Key.NumMultiply, Key.NumSubtract, Key.Num7, Key.Num8, Key.Num9, Key.NumAdd, Key.Num4, Key.Num5, Key.Num6, Key.Num1, Key.Num2, Key.Num3, Key.NumEnter, Key.Num0, Key.NumDecimal };
+        static List<Key> logoKey = new List<Key> { Key.Logo };
 
-        String device = "";
-        String percentMax = "100";
-        String percentMin = "0";
+
+        static List<Key> fullKeylist = new List<Key>();
+        static List<Key> mainKeylist = new List<Key>();
+        static List<Key> WASDKeylist = new List<Key>();
+        static List<Key> mainNoWASDKeylist = new List<Key>();
+        static List<Key> functionKeylist = new List<Key>();
+        static List<Key> homeKeylist = new List<Key>();
+        static List<Key> arrowKeylist = new List<Key>();
+        static List<Key> numpadKeylist = new List<Key>();
+        static List<Key> macroKeylist = new List<Key>();
 
 
-        Boolean dynamicMouseStrip = false;
-        String mouseTarget = "ALL";
-        static Color[] currMouseColor = new Color[30];
+
+        static Color[] keyboardColors = new Color[1000];
 
         void UpdateColor(String RGB, String RGB2, String effect, String device, double percent)
         {
@@ -115,10 +149,12 @@ namespace PluginRGBController
                 //25 percent is 75% color1 + 25% color2
 
                 //Currently the second one is the one used and it seems to work well enough
-                Color RGBColor, RGBColor2 = new Color(0,0,0);
+                Color RGBColor = new Color(0, 0, 0);
+                Color RGBColor2 = new Color(0,0,0);
 
                 try
                 {
+                    if (RGB != null && RGB != "")
                     {
                         String[] RGBarr = RGB.Split(',');
                         byte R = Convert.ToByte(RGBarr[0]);
@@ -263,7 +299,6 @@ namespace PluginRGBController
                         currMouseColor[(int)Led.Logo] = blendedColor;
                         currMouseColor[(int)Led.ScrollWheel] = blendedColor;
                     }
-
                         Corale.Colore.Razer.Mouse.Effects.Custom gradient = new Corale.Colore.Razer.Mouse.Effects.Custom(currMouseColor);
                         Mouse.Instance.SetCustom(gradient);
                     }
@@ -275,7 +310,14 @@ namespace PluginRGBController
                 }
                 else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
                 {
-                    Keyboard.Instance.SetStatic(new Corale.Colore.Razer.Keyboard.Effects.Static(blendedColor));
+                    if (keyboardTarget == null || keyboardTarget == "" || keyboardTarget.CompareTo("ALL") == 0)
+                    {
+                        Keyboard.Instance.SetStatic(new Corale.Colore.Razer.Keyboard.Effects.Static(blendedColor));
+                    }
+                    else if (keyboardTarget.CompareTo(keyboardGroups.WASD.ToString()) == 0)
+                    {
+                        Keyboard.Instance.SetKeys(wasdKeys, blendedColor);
+                    }
                 }
             }
             else if (RGB != null && RGB != "")
@@ -385,6 +427,53 @@ namespace PluginRGBController
 
         internal Measure()
         {
+            Chroma.Instance.Initialize();
+
+
+            fullKeylist.AddRange(numberKeys);
+            fullKeylist.AddRange(qwertyKeys);
+            fullKeylist.AddRange(asdfKeys);
+            fullKeylist.AddRange(zxcvKeys);
+            fullKeylist.AddRange(ctrlKeys);
+            fullKeylist.AddRange(fnKeys);
+            fullKeylist.AddRange(escapeKey);
+            fullKeylist.AddRange(sysKeys);
+            fullKeylist.AddRange(macroKeys);
+            fullKeylist.AddRange(manipKeys);
+            fullKeylist.AddRange(arrowKeys);
+            fullKeylist.AddRange(numpadKeys);
+            fullKeylist.AddRange(logoKey);
+
+            mainKeylist.AddRange(numberKeys);
+            mainKeylist.AddRange(qwertyKeys);
+            mainKeylist.AddRange(asdfKeys);
+            mainKeylist.AddRange(zxcvKeys);
+            mainKeylist.AddRange(ctrlKeys);
+
+            mainNoWASDKeylist.AddRange(numberKeys);
+            mainNoWASDKeylist.AddRange(qwertyNoWASDKeys);
+            mainNoWASDKeylist.AddRange(asdfNoWASDKeys);
+            mainNoWASDKeylist.AddRange(zxcvKeys);
+            mainNoWASDKeylist.AddRange(ctrlKeys);
+
+            WASDKeylist.AddRange(wasdKeys);
+
+            functionKeylist.AddRange(fnKeys);
+            functionKeylist.AddRange(escapeKey);
+            functionKeylist.AddRange(sysKeys);
+
+            homeKeylist.AddRange(manipKeys);
+
+            arrowKeylist.AddRange(arrowKeys);
+
+            numpadKeylist.AddRange(numpadKeys);
+
+            macroKeylist.AddRange(macroKeys);
+
+            Chroma.Instance.ApplicationState += (args, args2) => {
+                API.Log(API.LogType.Notice, "args:" + args.ToString());
+                API.Log(API.LogType.Notice, "args2:" + args2.ToString());
+            };
         }
 
         internal void Reload(Rainmeter.API api, ref double maxValue)
@@ -402,11 +491,18 @@ namespace PluginRGBController
             dynamicMouseStrip = Convert.ToBoolean(Convert.ToInt16(api.ReadString("MouseStripsUsePercent", "0")));
             mouseTarget = api.ReadString("MouseTarget", "all").ToUpper();
 
+            keyboardTarget = api.ReadString("KeyboardTarget", "all").ToUpper();
+
             double percent = 0.0;
 
             if(percentString != null && percentString !="")
             {
                 percent = (Convert.ToDouble(percentString) - Convert.ToDouble(percentMin)) / (Convert.ToDouble(percentMax) - Convert.ToDouble(percentMin));
+
+                if (double.IsInfinity(percent))
+                {
+                    percent = 100;
+                }
             }
             
             //Check if anything has changed since last update
@@ -419,6 +515,10 @@ namespace PluginRGBController
 
         internal double Update()
         {
+            //API.Log(API.LogType.Notice, Corale.Colore.Core.Chroma.Instance.ApplicationState());
+            //API.Log(API.LogType.Notice, Corale.Colore.Events.ApplicationStateEventArgs);
+            //API.Log(API.LogType.Notice, "State:" + Corale.Colore.Core.Chroma.Instance.Initialized.ToString());
+
             return 0.0;
         }
 
@@ -438,6 +538,11 @@ namespace PluginRGBController
             {
                 double percent = Convert.ToDouble(argArr[1]);
                 percent = (percent - Convert.ToDouble(percentMin)) / (Convert.ToDouble(percentMax) - Convert.ToDouble(percentMin));
+
+                if(double.IsInfinity(percent))
+                {
+                    percent = 100;
+                }
 
                 String RGB = argArr[2].ToUpper();
                 String RGB2 = null;
@@ -486,9 +591,7 @@ namespace PluginRGBController
         [DllExport]
         public static void Finalize(IntPtr data)
         {
-            Mouse.Instance.Clear();
-            Headset.Instance.Clear();
-            Keyboard.Instance.Clear();
+            Chroma.Instance.Uninitialize();
 
             GCHandle.FromIntPtr(data).Free();
 
