@@ -242,7 +242,7 @@ namespace PluginRGBController
                                 //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
 
                                 //Go through right side
-                                if (i > midPoint + (int)Led.Strip1)
+                                if (i >= midPoint + (int)Led.Strip1)
                                 { 
                                     //Plus one so the top light is not missed
                                     //Minus one so that it goes from bottom to top and not top to bottom
