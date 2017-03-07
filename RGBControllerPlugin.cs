@@ -18,6 +18,9 @@ namespace PluginRGBController
 {
     internal class Measure
     {
+        //Keep track of how many instances of the plugin are floating around to ensure that deinitialization happens correctly
+        public static int numOfInstances = 0;
+
         enum effectTypes
         {
             STATIC,
@@ -95,7 +98,6 @@ namespace PluginRGBController
 
         void UpdateColor(String RGB, String RGB2, String effect, String device, double percent)
         {
-            currentColor = RGB;
             if (device.CompareTo("ALL") == 0)
             {
                 foreach (deviceTypes currDevice in Enum.GetValues(typeof(deviceTypes)))
@@ -105,6 +107,7 @@ namespace PluginRGBController
             }
             else if (effect.CompareTo(effectTypes.SPECTRUM.ToString()) == 0)
             {
+                currentColor = "Spectrum";
                 if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                 {
                     Mouse.Instance.SetSpectrumCycling(new SpectrumCycling(Led.All));
@@ -120,6 +123,7 @@ namespace PluginRGBController
             }
             else if (effect.CompareTo(effectTypes.WAVE.ToString()) == 0)
             {
+                currentColor = "Wave";
                 //TODO Add user defined direction
                 if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                 {
@@ -182,7 +186,7 @@ namespace PluginRGBController
                 }
 
                 Color blendedColor = new Color((byte)(RGBColor.R * (1.0 - percent) + RGBColor2.R * percent), (byte)(RGBColor.G * (1.0 - percent) + RGBColor2.G * percent), (byte)(RGBColor.B * (1.0 - percent) + RGBColor2.B * percent));
-                currentColor += ":" + RGB2;
+                currentColor = blendedColor.R.ToString() + "," + blendedColor.G.ToString() + "," + blendedColor.B.ToString();
 
                 if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                 {
@@ -275,7 +279,7 @@ namespace PluginRGBController
                             int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
 
 
-                            for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
+                            for (int i = (int)Led.Strip1; i <= (int)Led.Strip7; i++)
                             {
                                 //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
 
@@ -301,7 +305,7 @@ namespace PluginRGBController
                             int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
 
 
-                            for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
+                            for (int i = (int)Led.Strip8; i <= (int)Led.Strip14; i++)
                             {
                                 //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
 
@@ -374,6 +378,7 @@ namespace PluginRGBController
 
                 if (effect.CompareTo(effectTypes.STATIC.ToString()) == 0)
                 {
+                    currentColor = RGBColor.R.ToString() + "," + RGBColor.G.ToString() + "," + RGBColor.B.ToString();
                     if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                     {
                         for(int i = 0; i < mouseLEDColorArr.Length; i++)
@@ -394,6 +399,7 @@ namespace PluginRGBController
                 }
                 else if (effect.CompareTo(effectTypes.BREATHING.ToString()) == 0)
                 {
+                    currentColor = RGBColor.R.ToString() + "," + RGBColor.G.ToString() + "," + RGBColor.B.ToString();
                     if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                     {
                         if (RGB2 == null || RGB2 == "")
@@ -402,6 +408,7 @@ namespace PluginRGBController
                         }
                         else
                         {
+                            currentColor += ":" + RGBColor2.R.ToString() + "," + RGBColor2.G.ToString() + "," + RGBColor2.B.ToString();
                             currentColor += ":" + RGB2;
                             if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                             {
@@ -439,6 +446,7 @@ namespace PluginRGBController
                 //}
                 else if (effect.CompareTo(effectTypes.REACTIVE.ToString()) == 0)
                 {
+                    currentColor = RGBColor.R.ToString() + "," + RGBColor.G.ToString() + "," + RGBColor.B.ToString();
                     //TODO Add user defined duration
                     if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                     {
@@ -456,7 +464,8 @@ namespace PluginRGBController
         {
             Chroma.Instance.Initialize();
 
-
+            //TODO Lets not do this shit
+            //Temporary for testing will get rid of later for a less memory consumption approach
             fullKeylist.AddRange(numberKeys);
             fullKeylist.AddRange(qwertyKeys);
             fullKeylist.AddRange(asdfKeys);
@@ -543,10 +552,10 @@ namespace PluginRGBController
             //API.Log(API.LogType.Notice, "State:" + Corale.Colore.Core.Chroma.Instance.Initialized.ToString());
 
             //TODO figure out how to fix lighting not coming back/coming back dim or incorrect after if device lights are set to turn of when display is turned off
-            if(!Chroma.Instance.Initialized)
-            {
-                Chroma.Instance.Initialize();
-            }
+            //if(!Chroma.Instance.Initialized)
+            //{
+            //    Chroma.Instance.Initialize();
+            //}
 
             return 0.0;
         }
@@ -554,6 +563,7 @@ namespace PluginRGBController
         internal string GetString()
         {
             return currentColor;
+            //return Chroma.Instance.Mouse[Led.Strip7].R.ToString() + "," + Chroma.Instance.Mouse[Led.Strip7].G.ToString() + "," + Chroma.Instance.Mouse[Led.Strip7].B.ToString();
         }
 
         internal void ExecuteBang(string args)
@@ -614,13 +624,25 @@ namespace PluginRGBController
         [DllExport]
         public static void Initialize(ref IntPtr data, IntPtr rm)
         {
+            if (Measure.numOfInstances == 0)
+            {
+                Chroma.Instance.Initialize();
+            }
+
+            Measure.numOfInstances++;
+
             data = GCHandle.ToIntPtr(GCHandle.Alloc(new Measure()));
         }
 
         [DllExport]
         public static void Finalize(IntPtr data)
         {
-            Chroma.Instance.Uninitialize();
+            Measure.numOfInstances--;
+
+            if(Measure.numOfInstances == 0)
+            {
+                Chroma.Instance.Uninitialize();
+            }
 
             GCHandle.FromIntPtr(data).Free();
 
