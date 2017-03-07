@@ -43,9 +43,9 @@ namespace PluginRGBController
         String percentMin = "0";
 
 
-        Boolean dynamicMouseStrip = false;
+        Boolean colorAllLEDs = true;
         String mouseTarget = "ALL";
-        static Color[] currMouseColor = new Color[30];
+        static Color[] mouseLEDColorArr = new Color[30];
 
         String keyboardTarget = "ALL";
         enum keyboardGroups
@@ -120,14 +120,13 @@ namespace PluginRGBController
             }
             else if (effect.CompareTo(effectTypes.WAVE.ToString()) == 0)
             {
+                //TODO Add user defined direction
                 if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                 {
-                    //TODO Add user defined direction
                     Mouse.Instance.SetWave(new Corale.Colore.Razer.Mouse.Effects.Wave(Corale.Colore.Razer.Mouse.Effects.Direction.FrontToBack));
                 }
                 else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
                 {
-                    //TODO Add user defined direction
                     Keyboard.Instance.SetWave(new Corale.Colore.Razer.Keyboard.Effects.Wave(Corale.Colore.Razer.Keyboard.Effects.Direction.LeftToRight));
                 }
             }
@@ -189,23 +188,52 @@ namespace PluginRGBController
                 {
                     //Uses a global array of LED colors. Since each side can be targeted independently it just updates its part of the array.
                     //Supports targeting the all LEDs, Left side, Right side, or just the logo backlight and scrollwheel
-
-                    if (!dynamicMouseStrip)
+                    
+                    //Update just the extra stuff
+                    //Note we do this here for all to prevent duplicate code
+                    if (mouseTarget == null || mouseTarget.CompareTo("EXTRA") == 0 || mouseTarget.CompareTo("ALL") == 0 || mouseTarget == "")
                     {
-                        Mouse.Instance.SetStatic(new Corale.Colore.Razer.Mouse.Effects.Static(Led.All, blendedColor));
+                        mouseLEDColorArr[(int)Led.Backlight] = blendedColor;
+                        mouseLEDColorArr[(int)Led.Logo] = blendedColor;
+                        mouseLEDColorArr[(int)Led.ScrollWheel] = blendedColor;
                     }
+                    //Color mouse region all the same color
+                    else if (colorAllLEDs)
+                    {
+                        //Color whole mouse same color
+                        if (mouseTarget == null || mouseTarget.CompareTo("ALL") == 0 || mouseTarget == "")
+                        { 
+                            for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
+                            {
+                                mouseLEDColorArr[i] = blendedColor;
+                            }
+                        }
+                        //Color left mouse region same color
+                        else if (mouseTarget.CompareTo("LEFT") == 0)
+                        {
+                            for (int i = (int)Led.Strip1; i <= (int)Led.Strip7; i++)
+                            {
+                                mouseLEDColorArr[i] = blendedColor;
+                            }
+                        }
+                        //Color right mouse region same color
+                        else if (mouseTarget.CompareTo("RIGHT") == 0)
+                        {
+                            for (int i = (int)Led.Strip8; i <= (int)Led.Strip14; i++)
+                            {
+                                mouseLEDColorArr[i] = blendedColor;
+                            }
+                        }
+                    }
+                    //Intelegent coloring based on percent
+                    //TODO make values inbetween light up next LED partially based on how close to value it is
                     else
                     {
-
+                        //Update both side based on this 
                         if (mouseTarget == null || mouseTarget.CompareTo("ALL") == 0 || mouseTarget == "")
                         {
                             //+1 is so that we use the count of LEDs
                             int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
-
-                            currMouseColor[(int)Led.Backlight] = blendedColor;
-                            currMouseColor[(int)Led.Logo] = blendedColor;
-                            currMouseColor[(int)Led.ScrollWheel] = blendedColor;
-
 
                             for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
                             {
@@ -218,11 +246,11 @@ namespace PluginRGBController
                                     //Minus one so that it goes from bottom to top and not top to bottom
                                     if (1 - (double)(i - (int)Led.Strip1 + 1) / midPoint < percent)
                                     {
-                                        currMouseColor[i] = blendedColor;
+                                        mouseLEDColorArr[i] = blendedColor;
                                     }
                                     else
                                     {
-                                        currMouseColor[i] = new Color(0, 0, 0);
+                                        mouseLEDColorArr[i] = new Color(0, 0, 0);
                                     }
                                 }
                                 //Go through  right side
@@ -232,11 +260,11 @@ namespace PluginRGBController
                                     //Minus one so that it goes from bottom to top and not top to bottom
                                     if (1 - (double)(i - (int)Led.Strip1 - midPoint + 1) / midPoint < percent)
                                     {
-                                        currMouseColor[i] = blendedColor;
+                                        mouseLEDColorArr[i] = blendedColor;
                                     }
                                     else
                                     {
-                                        currMouseColor[i] = new Color(0, 0, 0);
+                                        mouseLEDColorArr[i] = new Color(0, 0, 0);
                                     }
                                 }
                             }
@@ -258,11 +286,11 @@ namespace PluginRGBController
                                     //Minus one so that it goes from bottom to top and not top to bottom
                                     if (1 - (double)(i - (int)Led.Strip1 + 1) / midPoint < percent)
                                     {
-                                        currMouseColor[i] = blendedColor;
+                                        mouseLEDColorArr[i] = blendedColor;
                                     }
                                     else
                                     {
-                                        currMouseColor[i] = new Color(0, 0, 0);
+                                        mouseLEDColorArr[i] = new Color(0, 0, 0);
                                     }
                                 }
                             }
@@ -284,25 +312,20 @@ namespace PluginRGBController
                                     //Minus one so that it goes from bottom to top and not top to bottom
                                     if (1 - (double)(i - (int)Led.Strip1 - midPoint + 1) / midPoint < percent)
                                     {
-                                        currMouseColor[i] = blendedColor;
+                                        mouseLEDColorArr[i] = blendedColor;
                                     }
                                     else
                                     {
-                                        currMouseColor[i] = new Color(0, 0, 0);
+                                        mouseLEDColorArr[i] = new Color(0, 0, 0);
                                     }
                                 }
                             }
                         }
-                    else if(mouseTarget.CompareTo("EXTRA") == 0)
-                    {
-                        currMouseColor[(int)Led.Backlight] = blendedColor;
-                        currMouseColor[(int)Led.Logo] = blendedColor;
-                        currMouseColor[(int)Led.ScrollWheel] = blendedColor;
-                    }
-                        Corale.Colore.Razer.Mouse.Effects.Custom gradient = new Corale.Colore.Razer.Mouse.Effects.Custom(currMouseColor);
-                        Mouse.Instance.SetCustom(gradient);
                     }
 
+                    //Update mouse to current colors set
+                    Corale.Colore.Razer.Mouse.Effects.Custom myGradientEffect = new Corale.Colore.Razer.Mouse.Effects.Custom(mouseLEDColorArr);
+                    Mouse.Instance.SetCustom(myGradientEffect);
                 }
                 else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
                 {
@@ -312,7 +335,7 @@ namespace PluginRGBController
                 {
                     if (keyboardTarget == null || keyboardTarget == "" || keyboardTarget.CompareTo("ALL") == 0)
                     {
-                        Keyboard.Instance.SetStatic(new Corale.Colore.Razer.Keyboard.Effects.Static(blendedColor));
+                        Keyboard.Instance.SetKeys(fullKeylist, blendedColor);
                     }
                     else if (keyboardTarget.CompareTo(keyboardGroups.WASD.ToString()) == 0)
                     {
@@ -353,7 +376,12 @@ namespace PluginRGBController
                 {
                     if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                     {
-                        Mouse.Instance.SetStatic(new Corale.Colore.Razer.Mouse.Effects.Static(Led.All, RGBColor));
+                        for(int i = 0; i < mouseLEDColorArr.Length; i++)
+                        {
+                            mouseLEDColorArr[i] = RGBColor;
+                        }
+                        Corale.Colore.Razer.Mouse.Effects.Custom myStaticEffect = new Corale.Colore.Razer.Mouse.Effects.Custom(mouseLEDColorArr);
+                        Mouse.Instance.SetCustom(myStaticEffect);
                     }
                     else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
                     {
@@ -361,7 +389,7 @@ namespace PluginRGBController
                     }
                     else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
                     {
-                        Keyboard.Instance.SetStatic(new Corale.Colore.Razer.Keyboard.Effects.Static(RGBColor));
+                        Keyboard.Instance.SetKeys(fullKeylist, RGBColor);
                     }
                 }
                 else if (effect.CompareTo(effectTypes.BREATHING.ToString()) == 0)
@@ -411,14 +439,13 @@ namespace PluginRGBController
                 //}
                 else if (effect.CompareTo(effectTypes.REACTIVE.ToString()) == 0)
                 {
+                    //TODO Add user defined duration
                     if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                     {
-                        //TODO Add user defined duration
                         Mouse.Instance.SetReactive(new Corale.Colore.Razer.Mouse.Effects.Reactive(Led.All, Corale.Colore.Razer.Mouse.Effects.Duration.Long, RGBColor));
                     }
                     else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
                     {
-                        //TODO Add user defined duration
                         Keyboard.Instance.SetReactive(new Corale.Colore.Razer.Keyboard.Effects.Reactive(RGBColor, Corale.Colore.Razer.Keyboard.Effects.Duration.Long));
                     }
                 }
@@ -469,15 +496,11 @@ namespace PluginRGBController
             numpadKeylist.AddRange(numpadKeys);
 
             macroKeylist.AddRange(macroKeys);
-
-            Chroma.Instance.ApplicationState += (args, args2) => {
-                API.Log(API.LogType.Notice, "args:" + args.ToString());
-                API.Log(API.LogType.Notice, "args2:" + args2.ToString());
-            };
         }
 
         internal void Reload(Rainmeter.API api, ref double maxValue)
         {
+            //TODO clean up to minimize reads on effect types that dont use them
             String RGB = api.ReadString("Color", null);
             String RGB2 = api.ReadString("Color2", null);
 
@@ -488,7 +511,7 @@ namespace PluginRGBController
             percentMax = api.ReadString("PercentMax", "100");
             percentMin = api.ReadString("PercentMin", "0");
 
-            dynamicMouseStrip = Convert.ToBoolean(Convert.ToInt16(api.ReadString("MouseStripsUsePercent", "0")));
+            colorAllLEDs = Convert.ToBoolean(Convert.ToInt16(api.ReadString("ColorAllLEDs", "1")));
             mouseTarget = api.ReadString("MouseTarget", "all").ToUpper();
 
             keyboardTarget = api.ReadString("KeyboardTarget", "all").ToUpper();
@@ -506,10 +529,10 @@ namespace PluginRGBController
             }
             
             //Check if anything has changed since last update
-            if (lastUpdate != RGB + RGB2 + effect + device + percent)
+            if (lastUpdate != RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent)
             {
                 UpdateColor(RGB, RGB2, effect, device, percent);
-                lastUpdate = RGB + RGB2 + effect + device + percent;
+                lastUpdate = RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent;
             }
         }
 
@@ -518,6 +541,12 @@ namespace PluginRGBController
             //API.Log(API.LogType.Notice, Corale.Colore.Core.Chroma.Instance.ApplicationState());
             //API.Log(API.LogType.Notice, Corale.Colore.Events.ApplicationStateEventArgs);
             //API.Log(API.LogType.Notice, "State:" + Corale.Colore.Core.Chroma.Instance.Initialized.ToString());
+
+            //TODO figure out how to fix lighting not coming back/coming back dim or incorrect after if device lights are set to turn of when display is turned off
+            if(!Chroma.Instance.Initialized)
+            {
+                Chroma.Instance.Initialize();
+            }
 
             return 0.0;
         }
@@ -533,7 +562,7 @@ namespace PluginRGBController
 
             String effect = argArr[0].ToUpper();
 
-            //TODO add support for percent min and max on gradient bangs
+            //TODO Decrease complexity of bangs and have it just use values from measure
             if (effect.CompareTo(effectTypes.GRADIENT.ToString()) == 0)
             {
                 double percent = Convert.ToDouble(argArr[1]);
@@ -552,10 +581,10 @@ namespace PluginRGBController
                     RGB2 = argArr[3].ToUpper();
                 }
 
-                if (lastUpdate != RGB + RGB2 + effect + device + percent)
+                if (lastUpdate != RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent)
                 {
                     UpdateColor(RGB, RGB2, effect, device, percent);
-                    lastUpdate = RGB + RGB2 + effect + device + percent;
+                    lastUpdate = RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent;
                 }
             }
             else
@@ -569,10 +598,10 @@ namespace PluginRGBController
                 }
                 double percent = 0.0;
 
-                if (lastUpdate != RGB + RGB2 + effect + device + percent)
+                if (lastUpdate != RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent)
                 {
                     UpdateColor(RGB, RGB2, effect, device, percent);
-                    lastUpdate = RGB + RGB2 + effect + device + percent;
+                    lastUpdate = RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent;
                 }
             }
         }
