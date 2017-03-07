@@ -20,6 +20,8 @@ namespace PluginRGBController
     {
         //Keep track of how many instances of the plugin are floating around to ensure that deinitialization happens correctly
         public static int numOfInstances = 0;
+        //In the event that a likely scenario occurs where the effect may have been overridden this will become true
+        bool mayNeedToRedoEffect = false;
 
         enum effectTypes
         {
@@ -38,10 +40,18 @@ namespace PluginRGBController
             KEYBOARD
         }
 
+        //Color to report as string for user
+        //Note: Sometimes is not an RGB value
         String currentColor = "";
+        //A string of what the parameters were for the last update so we dont do it again unless we need to.
+        //Also may be useful for if we detect that we need to redo the color but is not used for that (Use cases would be if skin is unloaded load the other skins last known and maybe to fix the screen off bug and the refresh bug)
         String lastUpdate = "";
 
+        String RGB = "";
+        String RGB2 = "";
+        String effect = "";
         String device = "";
+        double percent = 0.0;
         String percentMax = "100";
         String percentMin = "0";
 
@@ -409,11 +419,7 @@ namespace PluginRGBController
                         else
                         {
                             currentColor += ":" + RGBColor2.R.ToString() + "," + RGBColor2.G.ToString() + "," + RGBColor2.B.ToString();
-                            currentColor += ":" + RGB2;
-                            if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
-                            {
-                                Mouse.Instance.SetBreathing(new Corale.Colore.Razer.Mouse.Effects.Breathing(Led.All, RGBColor, RGBColor2));
-                            }
+                            Mouse.Instance.SetBreathing(new Corale.Colore.Razer.Mouse.Effects.Breathing(Led.All, RGBColor, RGBColor2));
                         }
                     }
                     else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
@@ -429,11 +435,8 @@ namespace PluginRGBController
                         }
                         else
                         {
-                            currentColor += ":" + RGB2;
-                            if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
-                            {
-                                Keyboard.Instance.SetBreathing(new Corale.Colore.Razer.Keyboard.Effects.Breathing(RGBColor, RGBColor2));
-                            }
+                            currentColor += ":" + RGBColor2.R.ToString() + "," + RGBColor2.G.ToString() + "," + RGBColor2.B.ToString();
+                            Keyboard.Instance.SetBreathing(new Corale.Colore.Razer.Keyboard.Effects.Breathing(RGBColor, RGBColor2));
                         }
                     }
                 }
@@ -510,10 +513,12 @@ namespace PluginRGBController
         internal void Reload(Rainmeter.API api, ref double maxValue)
         {
             //TODO clean up to minimize reads on effect types that dont use them
-            String RGB = api.ReadString("Color", null);
-            String RGB2 = api.ReadString("Color2", null);
+            //Actually I think I am gonna keep them so that user can define stuff for if they change effects and its not a big impact on perf
 
-            String effect = api.ReadString("Effect", "static").ToUpper();
+            RGB = api.ReadString("Color", null);
+            RGB2 = api.ReadString("Color2", null);
+
+            effect = api.ReadString("Effect", "static").ToUpper();
             device = api.ReadString("Device", "all").ToUpper();
 
             String percentString = api.ReadString("Percent", null);
@@ -525,7 +530,7 @@ namespace PluginRGBController
 
             keyboardTarget = api.ReadString("KeyboardTarget", "all").ToUpper();
 
-            double percent = 0.0;
+            percent = 0.0;
 
             if(percentString != null && percentString !="")
             {
@@ -568,51 +573,81 @@ namespace PluginRGBController
 
         internal void ExecuteBang(string args)
         {
-            String[] argArr = args.Split( new char[] { ' ', ':' } );
+            String[] argArr = args.Split(new char[] { ' ', ':' });
 
-            String effect = argArr[0].ToUpper();
 
-            //TODO Decrease complexity of bangs and have it just use values from measure
-            if (effect.CompareTo(effectTypes.GRADIENT.ToString()) == 0)
+            int colorReadLocation = 0;
+            //Check if the first location is an effect 
+            if(Enum.IsDefined(typeof(effectTypes), argArr[0].ToUpper()))
             {
-                double percent = Convert.ToDouble(argArr[1]);
-                percent = (percent - Convert.ToDouble(percentMin)) / (Convert.ToDouble(percentMax) - Convert.ToDouble(percentMin));
+                effect = argArr[0].ToUpper();
+                colorReadLocation = 1;
 
-                if(double.IsInfinity(percent))
+                if (effect.CompareTo(effectTypes.GRADIENT.ToString()) == 0)
                 {
-                    percent = 100;
-                }
+                    double newPercent = Convert.ToDouble(argArr[1]);
+                    newPercent = (newPercent - Convert.ToDouble(percentMin)) / (Convert.ToDouble(percentMax) - Convert.ToDouble(percentMin));
 
-                String RGB = argArr[2].ToUpper();
-                String RGB2 = null;
+                    if (double.IsInfinity(newPercent))
+                    {
+                        newPercent = 100;
+                    }
 
-                if (argArr.Length >= 4)
-                {
-                    RGB2 = argArr[3].ToUpper();
-                }
-
-                if (lastUpdate != RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent)
-                {
-                    UpdateColor(RGB, RGB2, effect, device, percent);
-                    lastUpdate = RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent;
+                    percent = newPercent;
+                    colorReadLocation = 2;
                 }
             }
             else
             {
-                String RGB = argArr[1].ToUpper();
-                String RGB2 = null;
-
-                if (argArr.Length >= 3)
+                if (effect.CompareTo(effectTypes.GRADIENT.ToString()) == 0)
                 {
-                    RGB2 = argArr[2].ToUpper();
-                }
-                double percent = 0.0;
+                    double newPercent = Convert.ToDouble(argArr[0]);
+                    newPercent = (newPercent - Convert.ToDouble(percentMin)) / (Convert.ToDouble(percentMax) - Convert.ToDouble(percentMin));
 
-                if (lastUpdate != RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent)
-                {
-                    UpdateColor(RGB, RGB2, effect, device, percent);
-                    lastUpdate = RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent;
+                    if (double.IsInfinity(newPercent))
+                    {
+                        newPercent = 100;
+                    }
+
+                    percent = newPercent;
+                    colorReadLocation = 1;
                 }
+            }
+
+            //If there is a color to read after
+            if(argArr.Length >= colorReadLocation + 1)
+            {
+                //Check if color if not inform user
+                if (argArr[colorReadLocation].Split(',').Length >= 3)
+                {
+
+                    RGB = argArr[colorReadLocation].ToUpper();
+
+
+                    //If there is a second color to read after
+                    if (argArr.Length >= colorReadLocation + 2)
+                    {
+                        //Check if second location is a color if not inform user
+                        if (argArr[colorReadLocation + 1].Split(',').Length >= 3)
+                        {
+                            RGB2 = argArr[colorReadLocation + 1].ToUpper();
+                        }
+                    }
+                    else
+                    {
+                        API.Log(API.LogType.Warning, "Second color expected, got " + argArr[colorReadLocation + 1]);
+                    }
+                }
+                else
+                {
+                    API.Log(API.LogType.Warning, "First color expected, got " + argArr[colorReadLocation]);
+                }
+            }
+
+            if (lastUpdate != RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent)
+            {
+                UpdateColor(RGB, RGB2, effect, device, percent);
+                lastUpdate = RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent;
             }
         }
     }
@@ -624,11 +659,6 @@ namespace PluginRGBController
         [DllExport]
         public static void Initialize(ref IntPtr data, IntPtr rm)
         {
-            if (Measure.numOfInstances == 0)
-            {
-                Chroma.Instance.Initialize();
-            }
-
             Measure.numOfInstances++;
 
             data = GCHandle.ToIntPtr(GCHandle.Alloc(new Measure()));
@@ -642,6 +672,10 @@ namespace PluginRGBController
             if(Measure.numOfInstances == 0)
             {
                 Chroma.Instance.Uninitialize();
+                //Im sorry
+                //TODO Find a way to fix uninit taking too long that it uninits my new info
+                //Possible workarounds detect if new color may be needed and send it again after 1000ms (I still dislike it as it has the potential to fail)
+                System.Threading.Thread.Sleep(1000);
             }
 
             GCHandle.FromIntPtr(data).Free();
