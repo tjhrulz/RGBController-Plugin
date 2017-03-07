@@ -13,6 +13,7 @@ using Corale.Colore.Razer.Headset.Effects;
 
 using Corale.Colore.Razer.Keyboard;
 using Corale.Colore.Razer.Keyboard.Effects;
+using System.Threading;
 
 namespace PluginRGBController
 {
@@ -20,8 +21,9 @@ namespace PluginRGBController
     {
         //Keep track of how many instances of the plugin are floating around to ensure that deinitialization happens correctly
         public static int numOfInstances = 0;
-        //In the event that a likely scenario occurs where the effect may have been overridden this will become true
-        bool mayNeedToRedoEffect = false;
+        //In the event that a scenario occurs where the effect may have been overridden this will become true
+        public static bool mayNeedToRedoEffect = false;
+        public static int instancesRedone = 0;
 
         enum effectTypes
         {
@@ -66,41 +68,46 @@ namespace PluginRGBController
             MAIN, //The normal keys
             MAINNOWASD, //Normal keys not including WASD
             WASD, //W A S and D keys
+            NUMBERS, //Top row of the main section of the keyboard
+            QWER, //The row on keyboard containing qwer
+            ASDF, //The row on keyboard containing asdf
+            ZXCV, //The row on keyboard containing zxcv
+            CTRL, //The bottom row on the keyboard
             NUMPAD, //Numpad
             ARROWS, //Arrow keys
             FUNCTION, //The 12 function keys and the escape button
+            FUNCTIONNOESCAPE, //The 12 function keys and the escape button
             SYSTEM, //The 9 system keys (insert, home, pg up, delete, end, pg down, print screen, scroll lock and break) 
             EXTRAS, //Any extra keys your keyboard has, if applicable
+            LOGO, //Logo on the keyboard
             CUSTOM //A set of custom keys to change defined in the rainmeter measure using the option keylist (comma or space seperated)
         }
 
-        static List<Key> wasdKeys = new List<Key> { Key.W, Key.A, Key.S, Key.D };
-        static List<Key> numberKeys = new List<Key> { Key.OemTilde, Key.D0, Key.D1, Key.D2, Key.D3, Key.D4, Key.D5, Key.D6, Key.D7, Key.D8, Key.D9, Key.D0, Key.OemMinus, Key.OemEquals, Key.Backspace };
-        static List<Key> qwertyKeys = new List<Key> { Key.Tab, Key.Q, Key.W, Key.E, Key.R, Key.T, Key.Y, Key.U, Key.I, Key.O, Key.P, Key.OemLeftBracket, Key.OemRightBracket, Key.OemBackslash };
-        static List<Key> qwertyNoWASDKeys = new List<Key> { Key.Tab, Key.Q, Key.W, Key.E, Key.R, Key.T, Key.Y, Key.U, Key.I, Key.O, Key.P, Key.OemLeftBracket, Key.OemRightBracket, Key.OemBackslash };
-        static List<Key> asdfKeys = new List<Key> { Key.CapsLock, Key.A, Key.S, Key.D, Key.F, Key.G, Key.H, Key.J, Key.K, Key.L, Key.OemSemicolon, Key.OemApostrophe, Key.Enter };
-        static List<Key> asdfNoWASDKeys = new List<Key> { Key.CapsLock, Key.F, Key.G, Key.H, Key.J, Key.K, Key.L, Key.OemSemicolon, Key.OemApostrophe, Key.Enter };
-        static List<Key> zxcvKeys = new List<Key> { Key.LeftShift, Key.Z, Key.X, Key.C, Key.V, Key.B, Key.N, Key.M, Key.OemComma, Key.OemPeriod, Key.OemSlash, Key.RightShift};
-        static List<Key> ctrlKeys = new List<Key> { Key.LeftControl, Key.LeftWindows, Key.LeftAlt, Key.Space, Key.RightAlt, Key.Function, Key.RightMenu, Key.RightControl };
-        static List<Key> fnKeys = new List<Key> { Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6, Key.F7, Key.F8, Key.F9, Key.F10, Key.F11, Key.F12 };
-        static List<Key> escapeKey = new List<Key> { Key.Escape };
-        static List<Key> sysKeys = new List<Key> { Key.PrintScreen, Key.Scroll, Key.Pause };
-        static List<Key> macroKeys = new List<Key> { Key.Macro1, Key.Macro2, Key.Macro3, Key.Macro4, Key.Macro5 };
-        static List<Key> manipKeys = new List<Key> { Key.Insert, Key.Home, Key.PageUp, Key.Delete, Key.End, Key.PageDown };
-        static List<Key> arrowKeys = new List<Key> { Key.Up, Key.Left, Key.Down, Key.Right };
-        static List<Key> numpadKeys = new List<Key> { Key.NumLock, Key.NumDivide, Key.NumMultiply, Key.NumSubtract, Key.Num7, Key.Num8, Key.Num9, Key.NumAdd, Key.Num4, Key.Num5, Key.Num6, Key.Num1, Key.Num2, Key.Num3, Key.NumEnter, Key.Num0, Key.NumDecimal };
-        static List<Key> logoKey = new List<Key> { Key.Logo };
+        static List<Key> mainKeylist = new List<Key> { Key.OemTilde, Key.D0, Key.D1, Key.D2, Key.D3, Key.D4, Key.D5, Key.D6, Key.D7, Key.D8, Key.D9, Key.D0, Key.OemMinus, Key.OemEquals, Key.Backspace, Key.Tab, Key.Q, Key.W, Key.E, Key.R, Key.T, Key.Y, Key.U, Key.I, Key.O, Key.P, Key.OemLeftBracket, Key.OemRightBracket, Key.OemBackslash, Key.CapsLock, Key.A, Key.S, Key.D, Key.F, Key.G, Key.H, Key.J, Key.K, Key.L, Key.OemSemicolon, Key.OemApostrophe, Key.Enter, Key.LeftShift, Key.Z, Key.X, Key.C, Key.V, Key.B, Key.N, Key.M, Key.OemComma, Key.OemPeriod, Key.OemSlash, Key.RightShift, Key.LeftControl, Key.LeftWindows, Key.LeftAlt, Key.Space, Key.RightAlt, Key.Function, Key.RightMenu, Key.RightControl };
+        static List<Key> mainNoWASDKeylist = new List<Key> { Key.OemTilde, Key.D0, Key.D1, Key.D2, Key.D3, Key.D4, Key.D5, Key.D6, Key.D7, Key.D8, Key.D9, Key.D0, Key.OemMinus, Key.OemEquals, Key.Backspace, Key.Tab, Key.Q, Key.E, Key.R, Key.T, Key.Y, Key.U, Key.I, Key.O, Key.P, Key.OemLeftBracket, Key.OemRightBracket, Key.OemBackslash, Key.CapsLock, Key.F, Key.G, Key.H, Key.J, Key.K, Key.L, Key.OemSemicolon, Key.OemApostrophe, Key.Enter, Key.LeftShift, Key.Z, Key.X, Key.C, Key.V, Key.B, Key.N, Key.M, Key.OemComma, Key.OemPeriod, Key.OemSlash, Key.RightShift, Key.LeftControl, Key.LeftWindows, Key.LeftAlt, Key.Space, Key.RightAlt, Key.Function, Key.RightMenu, Key.RightControl };
+        static List<Key> wasdKeylist = new List<Key> { Key.W, Key.A, Key.S, Key.D };
+
+        static List<Key> numberKeylist = new List<Key> { Key.OemTilde, Key.D0, Key.D1, Key.D2, Key.D3, Key.D4, Key.D5, Key.D6, Key.D7, Key.D8, Key.D9, Key.D0, Key.OemMinus, Key.OemEquals, Key.Backspace };
+        static List<Key> qwerKeylist = new List<Key> { Key.Tab, Key.Q, Key.W, Key.E, Key.R, Key.T, Key.Y, Key.U, Key.I, Key.O, Key.P, Key.OemLeftBracket, Key.OemRightBracket, Key.OemBackslash };
+        static List<Key> asdfKeylist = new List<Key> { Key.CapsLock, Key.A, Key.S, Key.D, Key.F, Key.G, Key.H, Key.J, Key.K, Key.L, Key.OemSemicolon, Key.OemApostrophe, Key.Enter };
+        static List<Key> zxcvKeylist = new List<Key> { Key.LeftShift, Key.Z, Key.X, Key.C, Key.V, Key.B, Key.N, Key.M, Key.OemComma, Key.OemPeriod, Key.OemSlash, Key.RightShift};
+        static List<Key> ctrlKeylist = new List<Key> { Key.LeftControl, Key.LeftWindows, Key.LeftAlt, Key.Space, Key.RightAlt, Key.Function, Key.RightMenu, Key.RightControl };
 
 
-        static List<Key> fullKeylist = new List<Key>();
-        static List<Key> mainKeylist = new List<Key>();
-        static List<Key> WASDKeylist = new List<Key>();
-        static List<Key> mainNoWASDKeylist = new List<Key>();
-        static List<Key> functionKeylist = new List<Key>();
-        static List<Key> homeKeylist = new List<Key>();
-        static List<Key> arrowKeylist = new List<Key>();
-        static List<Key> numpadKeylist = new List<Key>();
-        static List<Key> macroKeylist = new List<Key>();
+        static List<Key> numpadKeylist = new List<Key> { Key.NumLock, Key.NumDivide, Key.NumMultiply, Key.NumSubtract, Key.Num7, Key.Num8, Key.Num9, Key.NumAdd, Key.Num4, Key.Num5, Key.Num6, Key.Num1, Key.Num2, Key.Num3, Key.NumEnter, Key.Num0, Key.NumDecimal };
+
+        static List<Key> arrowsKeylist = new List<Key> { Key.Up, Key.Left, Key.Down, Key.Right };
+
+        static List<Key> functionKeylist = new List<Key> { Key.Escape, Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6, Key.F7, Key.F8, Key.F9, Key.F10, Key.F11, Key.F12 };
+        static List<Key> functionNoEscapeKeylist = new List<Key> { Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6, Key.F7, Key.F8, Key.F9, Key.F10, Key.F11, Key.F12 };
+
+        static List<Key> systemKeylist = new List<Key> { Key.PrintScreen, Key.Scroll, Key.Pause, Key.Insert, Key.Home, Key.PageUp, Key.Delete, Key.End, Key.PageDown };
+
+        static List<Key> extrasKeylist = new List<Key> { Key.Macro1, Key.Macro2, Key.Macro3, Key.Macro4, Key.Macro5};
+
+        static List<Key> logoKeylist = new List<Key> { Key.Logo };
+        //List of keys the measure is to use
+        List<Key> customKeylist = new List<Key> { };
 
 
 
@@ -349,11 +356,79 @@ namespace PluginRGBController
                 {
                     if (keyboardTarget == null || keyboardTarget == "" || keyboardTarget.CompareTo("ALL") == 0)
                     {
-                        Keyboard.Instance.SetKeys(fullKeylist, blendedColor);
+                        Keyboard.Instance.SetKeys(mainKeylist, blendedColor);
                     }
-                    else if (keyboardTarget.CompareTo(keyboardGroups.WASD.ToString()) == 0)
+                    else
                     {
-                        Keyboard.Instance.SetKeys(wasdKeys, blendedColor);
+                        List<Key> keylistToUpdate = new List<Key>();
+
+                        //TODO index key groups in double demensional array to make this code cleaner
+                        if(keyboardTarget.CompareTo(keyboardGroups.MAIN.ToString()) == 0)
+                        {
+                            keylistToUpdate = mainKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.MAINNOWASD.ToString()) == 0)
+                        {
+                            keylistToUpdate = mainNoWASDKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.WASD.ToString()) == 0)
+                        {
+                            keylistToUpdate = wasdKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.NUMBERS.ToString()) == 0)
+                        {
+                            keylistToUpdate = numberKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.QWER.ToString()) == 0)
+                        {
+                            keylistToUpdate = qwerKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.ASDF.ToString()) == 0)
+                        {
+                            keylistToUpdate = asdfKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.ZXCV.ToString()) == 0)
+                        {
+                            keylistToUpdate = zxcvKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.CTRL.ToString()) == 0)
+                        {
+                            keylistToUpdate = ctrlKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.NUMPAD.ToString()) == 0)
+                        {
+                            keylistToUpdate = numpadKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.ARROWS.ToString()) == 0)
+                        {
+                            keylistToUpdate = arrowsKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.FUNCTION.ToString()) == 0)
+                        {
+                            keylistToUpdate = functionKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.FUNCTIONNOESCAPE.ToString()) == 0)
+                        {
+                            keylistToUpdate = functionNoEscapeKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.SYSTEM.ToString()) == 0)
+                        {
+                            keylistToUpdate = systemKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.EXTRAS.ToString()) == 0)
+                        {
+                            keylistToUpdate = extrasKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.LOGO.ToString()) == 0)
+                        {
+                            keylistToUpdate = logoKeylist;
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.CUSTOM.ToString()) == 0)
+                        {
+                            API.Log(API.LogType.Notice, "Custom keygroups not yet supported");
+                        }
+
+                        Keyboard.Instance.SetKeys(keylistToUpdate, blendedColor);
                     }
                 }
             }
@@ -404,7 +479,82 @@ namespace PluginRGBController
                     }
                     else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
                     {
-                        Keyboard.Instance.SetKeys(fullKeylist, RGBColor);
+                        if (keyboardTarget == null || keyboardTarget == "" || keyboardTarget.CompareTo("ALL") == 0)
+                        {
+                            Keyboard.Instance.SetKeys(mainKeylist, RGBColor);
+                        }
+                        else
+                        {
+                            List<Key> keylistToUpdate = new List<Key>();
+
+                            //TODO index key groups in double demensional array to make this code cleaner
+                            if (keyboardTarget.CompareTo(keyboardGroups.MAIN.ToString()) == 0)
+                            {
+                                keylistToUpdate = mainKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.MAINNOWASD.ToString()) == 0)
+                            {
+                                keylistToUpdate = mainNoWASDKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.WASD.ToString()) == 0)
+                            {
+                                keylistToUpdate = wasdKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.NUMBERS.ToString()) == 0)
+                            {
+                                keylistToUpdate = numberKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.QWER.ToString()) == 0)
+                            {
+                                keylistToUpdate = qwerKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.ASDF.ToString()) == 0)
+                            {
+                                keylistToUpdate = asdfKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.ZXCV.ToString()) == 0)
+                            {
+                                keylistToUpdate = zxcvKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.CTRL.ToString()) == 0)
+                            {
+                                keylistToUpdate = ctrlKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.NUMPAD.ToString()) == 0)
+                            {
+                                keylistToUpdate = numpadKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.ARROWS.ToString()) == 0)
+                            {
+                                keylistToUpdate = arrowsKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.FUNCTION.ToString()) == 0)
+                            {
+                                keylistToUpdate = functionKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.FUNCTIONNOESCAPE.ToString()) == 0)
+                            {
+                                keylistToUpdate = functionNoEscapeKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.SYSTEM.ToString()) == 0)
+                            {
+                                keylistToUpdate = systemKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.EXTRAS.ToString()) == 0)
+                            {
+                                keylistToUpdate = extrasKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.LOGO.ToString()) == 0)
+                            {
+                                keylistToUpdate = logoKeylist;
+                            }
+                            else if (keyboardTarget.CompareTo(keyboardGroups.CUSTOM.ToString()) == 0)
+                            {
+                                API.Log(API.LogType.Notice, "Custom keygroups not yet supported");
+                            }
+
+                            Keyboard.Instance.SetKeys(keylistToUpdate, RGBColor);
+                        }
                     }
                 }
                 else if (effect.CompareTo(effectTypes.BREATHING.ToString()) == 0)
@@ -465,49 +615,7 @@ namespace PluginRGBController
 
         internal Measure()
         {
-            Chroma.Instance.Initialize();
 
-            //TODO Lets not do this shit
-            //Temporary for testing will get rid of later for a less memory consumption approach
-            fullKeylist.AddRange(numberKeys);
-            fullKeylist.AddRange(qwertyKeys);
-            fullKeylist.AddRange(asdfKeys);
-            fullKeylist.AddRange(zxcvKeys);
-            fullKeylist.AddRange(ctrlKeys);
-            fullKeylist.AddRange(fnKeys);
-            fullKeylist.AddRange(escapeKey);
-            fullKeylist.AddRange(sysKeys);
-            fullKeylist.AddRange(macroKeys);
-            fullKeylist.AddRange(manipKeys);
-            fullKeylist.AddRange(arrowKeys);
-            fullKeylist.AddRange(numpadKeys);
-            fullKeylist.AddRange(logoKey);
-
-            mainKeylist.AddRange(numberKeys);
-            mainKeylist.AddRange(qwertyKeys);
-            mainKeylist.AddRange(asdfKeys);
-            mainKeylist.AddRange(zxcvKeys);
-            mainKeylist.AddRange(ctrlKeys);
-
-            mainNoWASDKeylist.AddRange(numberKeys);
-            mainNoWASDKeylist.AddRange(qwertyNoWASDKeys);
-            mainNoWASDKeylist.AddRange(asdfNoWASDKeys);
-            mainNoWASDKeylist.AddRange(zxcvKeys);
-            mainNoWASDKeylist.AddRange(ctrlKeys);
-
-            WASDKeylist.AddRange(wasdKeys);
-
-            functionKeylist.AddRange(fnKeys);
-            functionKeylist.AddRange(escapeKey);
-            functionKeylist.AddRange(sysKeys);
-
-            homeKeylist.AddRange(manipKeys);
-
-            arrowKeylist.AddRange(arrowKeys);
-
-            numpadKeylist.AddRange(numpadKeys);
-
-            macroKeylist.AddRange(macroKeys);
         }
 
         internal void Reload(Rainmeter.API api, ref double maxValue)
@@ -561,6 +669,24 @@ namespace PluginRGBController
             //{
             //    Chroma.Instance.Initialize();
             //}
+
+            if(mayNeedToRedoEffect)
+            {
+                instancesRedone++;
+
+                //Run new thread where after a second the effect is updated again
+                //May need to increase to more on old machines
+                new Thread(() =>
+                {
+                    Thread.Sleep(1000);
+                    UpdateColor(RGB, RGB2, effect, device, percent);
+                }).Start();
+
+                if (instancesRedone >= numOfInstances)
+                {
+                    mayNeedToRedoEffect = false;
+                }
+            }
 
             return 0.0;
         }
@@ -623,6 +749,7 @@ namespace PluginRGBController
 
                     RGB = argArr[colorReadLocation].ToUpper();
 
+                    //TODO add support for skipping to next argument if current one is not a color
 
                     //If there is a second color to read after
                     if (argArr.Length >= colorReadLocation + 2)
@@ -675,7 +802,8 @@ namespace PluginRGBController
                 //Im sorry
                 //TODO Find a way to fix uninit taking too long that it uninits my new info
                 //Possible workarounds detect if new color may be needed and send it again after 1000ms (I still dislike it as it has the potential to fail)
-                System.Threading.Thread.Sleep(1000);
+                //System.Threading.Thread.Sleep(1000);
+                Measure.mayNeedToRedoEffect = true;
             }
 
             GCHandle.FromIntPtr(data).Free();
