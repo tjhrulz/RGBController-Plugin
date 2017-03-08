@@ -118,6 +118,7 @@ namespace PluginRGBController
 
         void UpdateColor(String RGB, String RGB2, String effect, String device, double percent)
         {
+            //TODO raise flag when inside here so that I dont deinit when setting a new effect (Likely the cause of random errors)
             try
             {
                 if (device.CompareTo("ALL") == 0)
@@ -540,12 +541,13 @@ namespace PluginRGBController
             {
                 lock(errorOutputLock)
                 {
-                    API.Log(API.LogType.Error, "An error occured when setting a new effect, this can happen sometimes when refreshing");
+                    API.Log(API.LogType.Error, "An error occured when setting a new effect, this can happen sometimes when refreshing repeatedly. Turn on debug mode for more info");
 
                     API.Log(API.LogType.Debug, "RGBController.dll Error:" + e.Message + " doing:" + RGB + "," + RGB2 + "," + effect + "," + device + "," + percent + "," + mouseTarget + "," + keyboardTarget);
                     API.Log(API.LogType.Debug, "RGBController.dll Stacktrace:" + e.StackTrace);
                     API.Log(API.LogType.Debug, "RGBController.dll Data:" + e.Data);
                     API.Log(API.LogType.Debug, "RGBController.dll Error:" + e.InnerException.Message);
+                    API.Log(API.LogType.Debug, "Feel free to contact me at tjhrulz#5476 on discord with this info");
                 }
             }
         }
@@ -728,7 +730,7 @@ namespace PluginRGBController
         {
             if(Measure.numOfInstances == 0 && Measure.mayNeedToRedoEffect == true)
             {
-                //Chroma.Instance.Initialize();
+                Chroma.Instance.Initialize();
             }
 
             Measure.numOfInstances++;
@@ -745,7 +747,7 @@ namespace PluginRGBController
             {
                 try
                 {
-                    //Chroma.Instance.Uninitialize();
+                    Chroma.Instance.Uninitialize();
                 }
                 catch
                 {
@@ -755,7 +757,7 @@ namespace PluginRGBController
                 //TODO Find a way to fix uninit taking too long that it uninits my new info Update: This is kinda better but still wait based
                 //Possible workarounds detect if new color may be needed and send it again after 1000ms (I still dislike it as it has the potential to fail)
                 //System.Threading.Thread.Sleep(1000);
-                //Measure.mayNeedToRedoEffect = true;
+                Measure.mayNeedToRedoEffect = true;
             }
 
             GCHandle.FromIntPtr(data).Free();
