@@ -25,6 +25,9 @@ namespace PluginRGBController
         public static bool mayNeedToRedoEffect = false;
         public static int instancesRedone = 0;
 
+        //Lock so that errors and their info get outputed together and in order 
+        static object errorOutputLock = new object();
+
         enum effectTypes
         {
             STATIC,
@@ -109,513 +112,450 @@ namespace PluginRGBController
         //List of keys the measure is to use
         List<Key> customKeylist = new List<Key> { };
 
-
-
-        static Color[] keyboardColors = new Color[1000];
+        //Note keylistArr does not include custom keys so it can be static and take up less memory
+        static List<List<Key>> keylistArr = new List<List<Key>> { mainKeylist, mainNoWASDKeylist, wasdKeylist, numberKeylist, qwerKeylist, asdfKeylist, zxcvKeylist, ctrlKeylist, numpadKeylist, arrowsKeylist, functionKeylist, functionNoEscapeKeylist, systemKeylist, extrasKeylist, logoKeylist };
+        
 
         void UpdateColor(String RGB, String RGB2, String effect, String device, double percent)
         {
-            if (device.CompareTo("ALL") == 0)
+            try
             {
-                foreach (deviceTypes currDevice in Enum.GetValues(typeof(deviceTypes)))
+                if (device.CompareTo("ALL") == 0)
                 {
-                    UpdateColor(RGB, RGB2, effect, currDevice.ToString(), percent);
-                }
-            }
-            else if (effect.CompareTo(effectTypes.SPECTRUM.ToString()) == 0)
-            {
-                currentColor = "Spectrum";
-                if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
-                {
-                    Mouse.Instance.SetSpectrumCycling(new SpectrumCycling(Led.All));
-                }
-                else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
-                {
-                    Headset.Instance.SetEffect(Corale.Colore.Razer.Headset.Effects.Effect.SpectrumCycling);
-                }
-                else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
-                {
-                    Keyboard.Instance.SetEffect(Corale.Colore.Razer.Keyboard.Effects.Effect.SpectrumCycling);
-                }
-            }
-            else if (effect.CompareTo(effectTypes.WAVE.ToString()) == 0)
-            {
-                currentColor = "Wave";
-                //TODO Add user defined direction
-                if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
-                {
-                    Mouse.Instance.SetWave(new Corale.Colore.Razer.Mouse.Effects.Wave(Corale.Colore.Razer.Mouse.Effects.Direction.FrontToBack));
-                }
-                else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
-                {
-                    Keyboard.Instance.SetWave(new Corale.Colore.Razer.Keyboard.Effects.Wave(Corale.Colore.Razer.Keyboard.Effects.Direction.LeftToRight));
-                }
-            }
-            else if (effect.CompareTo(effectTypes.GRADIENT.ToString()) == 0)
-            {
-                //I am debating two different ways to do this
-
-                //The first trys to maintain a bright color however it would make the transition between to dim colors get birght in between
-                //0 percent is 100% color1
-                //100 percent is 100% color2
-                //50 percent is color1 + color2 and if any value is higher than 255 then all colors are rescaled to relative that value
-                //So if color1 is 255,255,0 and color2 is 0,255,255 the midpoint would be 122,255,122
-                //The 25% point would be 255,319,64 which would scale to 204,255,51
-
-                //The second blends colors better but would get dimmer in between
-                //0 percent is 100% color1
-                //100 percent is 100% color2
-                //50 percent is 50% color1 + 50% color2
-                //25 percent is 75% color1 + 25% color2
-
-                //Currently the second one is the one used and it seems to work well enough
-                Color RGBColor = new Color(0, 0, 0);
-                Color RGBColor2 = new Color(0,0,0);
-
-                try
-                {
-                    if (RGB != null && RGB != "")
+                    foreach (deviceTypes currDevice in Enum.GetValues(typeof(deviceTypes)))
                     {
-                        String[] RGBarr = RGB.Split(',');
-                        byte R = Convert.ToByte(RGBarr[0]);
-                        byte G = Convert.ToByte(RGBarr[1]);
-                        byte B = Convert.ToByte(RGBarr[2]);
-                        RGBColor = new Color(R, G, B);
-                    }
-
-                    if (RGB2 != null && RGB2 != "")
-                    {
-                        String[] RGBarr = RGB2.Split(',');
-                        byte R = Convert.ToByte(RGBarr[0]);
-                        byte G = Convert.ToByte(RGBarr[1]);
-                        byte B = Convert.ToByte(RGBarr[2]);
-                        RGBColor2 = new Color(R, G, B);
-                    }
-                    else
-                    {
-                        RGB2 = "0,0,0";
+                        UpdateColor(RGB, RGB2, effect, currDevice.ToString(), percent);
                     }
                 }
-                catch
+                else if (effect.CompareTo(effectTypes.SPECTRUM.ToString()) == 0)
                 {
-                    API.Log(API.LogType.Error, "RGB Value(s) are malformed, correct form is R,G,B");
-                    return;
-                }
-
-                Color blendedColor = new Color((byte)(RGBColor.R * (1.0 - percent) + RGBColor2.R * percent), (byte)(RGBColor.G * (1.0 - percent) + RGBColor2.G * percent), (byte)(RGBColor.B * (1.0 - percent) + RGBColor2.B * percent));
-                currentColor = blendedColor.R.ToString() + "," + blendedColor.G.ToString() + "," + blendedColor.B.ToString();
-
-                if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
-                {
-                    //Uses a global array of LED colors. Since each side can be targeted independently it just updates its part of the array.
-                    //Supports targeting the all LEDs, Left side, Right side, or just the logo backlight and scrollwheel
-                    
-                    //Update just the extra stuff
-                    //Note we do this here for all to prevent duplicate code
-                    if (mouseTarget == null || mouseTarget.CompareTo("EXTRA") == 0 || mouseTarget.CompareTo("ALL") == 0 || mouseTarget == "")
-                    {
-                        mouseLEDColorArr[(int)Led.Backlight] = blendedColor;
-                        mouseLEDColorArr[(int)Led.Logo] = blendedColor;
-                        mouseLEDColorArr[(int)Led.ScrollWheel] = blendedColor;
-                    }
-                    //Color mouse region all the same color
-                    else if (colorAllLEDs)
-                    {
-                        //Color whole mouse same color
-                        if (mouseTarget == null || mouseTarget.CompareTo("ALL") == 0 || mouseTarget == "")
-                        { 
-                            for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
-                            {
-                                mouseLEDColorArr[i] = blendedColor;
-                            }
-                        }
-                        //Color left mouse region same color
-                        else if (mouseTarget.CompareTo("LEFT") == 0)
-                        {
-                            for (int i = (int)Led.Strip1; i <= (int)Led.Strip7; i++)
-                            {
-                                mouseLEDColorArr[i] = blendedColor;
-                            }
-                        }
-                        //Color right mouse region same color
-                        else if (mouseTarget.CompareTo("RIGHT") == 0)
-                        {
-                            for (int i = (int)Led.Strip8; i <= (int)Led.Strip14; i++)
-                            {
-                                mouseLEDColorArr[i] = blendedColor;
-                            }
-                        }
-                    }
-                    //Intelegent coloring based on percent
-                    //TODO make values inbetween light up next LED partially based on how close to value it is
-                    else
-                    {
-                        //Update both side based on this 
-                        if (mouseTarget == null || mouseTarget.CompareTo("ALL") == 0 || mouseTarget == "")
-                        {
-                            //+1 is so that we use the count of LEDs
-                            int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
-
-                            for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
-                            {
-                                //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
-
-                                //Go through left side
-                                if (i < midPoint + (int)Led.Strip1)
-                                {
-                                    //Plus one so the top light is not missed
-                                    //Minus one so that it goes from bottom to top and not top to bottom
-                                    if (1 - (double)(i - (int)Led.Strip1 + 1) / midPoint < percent)
-                                    {
-                                        mouseLEDColorArr[i] = blendedColor;
-                                    }
-                                    else
-                                    {
-                                        mouseLEDColorArr[i] = new Color(0, 0, 0);
-                                    }
-                                }
-                                //Go through  right side
-                                else
-                                {
-                                    //Plus one so the top light is not missed
-                                    //Minus one so that it goes from bottom to top and not top to bottom
-                                    if (1 - (double)(i - (int)Led.Strip1 - midPoint + 1) / midPoint < percent)
-                                    {
-                                        mouseLEDColorArr[i] = blendedColor;
-                                    }
-                                    else
-                                    {
-                                        mouseLEDColorArr[i] = new Color(0, 0, 0);
-                                    }
-                                }
-                            }
-                        }
-                        else if (mouseTarget.CompareTo("LEFT") == 0)
-                        {
-                            //+1 is so that we use the count of LEDs
-                            int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
-
-
-                            for (int i = (int)Led.Strip1; i <= (int)Led.Strip7; i++)
-                            {
-                                //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
-
-                                //Go through left side
-                                if (i < midPoint + (int)Led.Strip1)
-                                {
-                                    //Plus one so the top light is not missed
-                                    //Minus one so that it goes from bottom to top and not top to bottom
-                                    if (1 - (double)(i - (int)Led.Strip1 + 1) / midPoint < percent)
-                                    {
-                                        mouseLEDColorArr[i] = blendedColor;
-                                    }
-                                    else
-                                    {
-                                        mouseLEDColorArr[i] = new Color(0, 0, 0);
-                                    }
-                                }
-                            }
-                        }
-                        else if (mouseTarget.CompareTo("RIGHT") == 0)
-                        {
-                            //+1 is so that we use the count of LEDs
-                            int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
-
-
-                            for (int i = (int)Led.Strip8; i <= (int)Led.Strip14; i++)
-                            {
-                                //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
-
-                                //Go through right side
-                                if (i >= midPoint + (int)Led.Strip1)
-                                { 
-                                    //Plus one so the top light is not missed
-                                    //Minus one so that it goes from bottom to top and not top to bottom
-                                    if (1 - (double)(i - (int)Led.Strip1 - midPoint + 1) / midPoint < percent)
-                                    {
-                                        mouseLEDColorArr[i] = blendedColor;
-                                    }
-                                    else
-                                    {
-                                        mouseLEDColorArr[i] = new Color(0, 0, 0);
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    //Update mouse to current colors set
-                    Corale.Colore.Razer.Mouse.Effects.Custom myGradientEffect = new Corale.Colore.Razer.Mouse.Effects.Custom(mouseLEDColorArr);
-                    Mouse.Instance.SetCustom(myGradientEffect);
-                }
-                else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
-                {
-                    Headset.Instance.SetStatic(new Corale.Colore.Razer.Headset.Effects.Static(blendedColor));
-                }
-                else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
-                {
-                    if (keyboardTarget == null || keyboardTarget == "" || keyboardTarget.CompareTo("ALL") == 0)
-                    {
-                        Keyboard.Instance.SetKeys(mainKeylist, blendedColor);
-                    }
-                    else
-                    {
-                        List<Key> keylistToUpdate = new List<Key>();
-
-                        //TODO index key groups in double demensional array to make this code cleaner
-                        if(keyboardTarget.CompareTo(keyboardGroups.MAIN.ToString()) == 0)
-                        {
-                            keylistToUpdate = mainKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.MAINNOWASD.ToString()) == 0)
-                        {
-                            keylistToUpdate = mainNoWASDKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.WASD.ToString()) == 0)
-                        {
-                            keylistToUpdate = wasdKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.NUMBERS.ToString()) == 0)
-                        {
-                            keylistToUpdate = numberKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.QWER.ToString()) == 0)
-                        {
-                            keylistToUpdate = qwerKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.ASDF.ToString()) == 0)
-                        {
-                            keylistToUpdate = asdfKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.ZXCV.ToString()) == 0)
-                        {
-                            keylistToUpdate = zxcvKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.CTRL.ToString()) == 0)
-                        {
-                            keylistToUpdate = ctrlKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.NUMPAD.ToString()) == 0)
-                        {
-                            keylistToUpdate = numpadKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.ARROWS.ToString()) == 0)
-                        {
-                            keylistToUpdate = arrowsKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.FUNCTION.ToString()) == 0)
-                        {
-                            keylistToUpdate = functionKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.FUNCTIONNOESCAPE.ToString()) == 0)
-                        {
-                            keylistToUpdate = functionNoEscapeKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.SYSTEM.ToString()) == 0)
-                        {
-                            keylistToUpdate = systemKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.EXTRAS.ToString()) == 0)
-                        {
-                            keylistToUpdate = extrasKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.LOGO.ToString()) == 0)
-                        {
-                            keylistToUpdate = logoKeylist;
-                        }
-                        else if (keyboardTarget.CompareTo(keyboardGroups.CUSTOM.ToString()) == 0)
-                        {
-                            API.Log(API.LogType.Notice, "Custom keygroups not yet supported");
-                        }
-
-                        Keyboard.Instance.SetKeys(keylistToUpdate, blendedColor);
-                    }
-                }
-            }
-            else if (RGB != null && RGB != "")
-            {
-                Color RGBColor, RGBColor2 = new Color();
-
-                try
-                {
-                    {
-                        String[] RGBarr = RGB.Split(',');
-                        byte R = Convert.ToByte(RGBarr[0]);
-                        byte G = Convert.ToByte(RGBarr[1]);
-                        byte B = Convert.ToByte(RGBarr[2]);
-                        RGBColor = new Color(R, G, B);
-                    }
-
-                    if (RGB2 != null && RGB2 != "")
-                    {
-                        String[] RGBarr = RGB2.Split(',');
-                        byte R = Convert.ToByte(RGBarr[0]);
-                        byte G = Convert.ToByte(RGBarr[1]);
-                        byte B = Convert.ToByte(RGBarr[2]);
-                        RGBColor2 = new Color(R, G, B);
-                    }
-                }
-                catch
-                {
-                    API.Log(API.LogType.Error, "RGB Value(s) are malformed, correct form is R,G,B");
-                    return;
-                }
-
-                if (effect.CompareTo(effectTypes.STATIC.ToString()) == 0)
-                {
-                    currentColor = RGBColor.R.ToString() + "," + RGBColor.G.ToString() + "," + RGBColor.B.ToString();
+                    currentColor = "Spectrum";
                     if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
                     {
-                        for(int i = 0; i < mouseLEDColorArr.Length; i++)
-                        {
-                            mouseLEDColorArr[i] = RGBColor;
-                        }
-                        Corale.Colore.Razer.Mouse.Effects.Custom myStaticEffect = new Corale.Colore.Razer.Mouse.Effects.Custom(mouseLEDColorArr);
-                        Mouse.Instance.SetCustom(myStaticEffect);
+                        Mouse.Instance.SetSpectrumCycling(new SpectrumCycling(Led.All));
                     }
                     else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
                     {
-                        Headset.Instance.SetStatic(new Corale.Colore.Razer.Headset.Effects.Static(RGBColor));
+                        Headset.Instance.SetEffect(Corale.Colore.Razer.Headset.Effects.Effect.SpectrumCycling);
+                    }
+                    else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
+                    {
+                        Keyboard.Instance.SetEffect(Corale.Colore.Razer.Keyboard.Effects.Effect.SpectrumCycling);
+                    }
+                }
+                else if (effect.CompareTo(effectTypes.WAVE.ToString()) == 0)
+                {
+                    currentColor = "Wave";
+                    //TODO Add user defined direction
+                    if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
+                    {
+                        Mouse.Instance.SetWave(new Corale.Colore.Razer.Mouse.Effects.Wave(Corale.Colore.Razer.Mouse.Effects.Direction.FrontToBack));
+                    }
+                    else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
+                    {
+                        Keyboard.Instance.SetWave(new Corale.Colore.Razer.Keyboard.Effects.Wave(Corale.Colore.Razer.Keyboard.Effects.Direction.LeftToRight));
+                    }
+                }
+                else if (effect.CompareTo(effectTypes.GRADIENT.ToString()) == 0)
+                {
+                    //I am debating two different ways to do this
+
+                    //The first trys to maintain a bright color however it would make the transition between to dim colors get birght in between
+                    //0 percent is 100% color1
+                    //100 percent is 100% color2
+                    //50 percent is color1 + color2 and if any value is higher than 255 then all colors are rescaled to relative that value
+                    //So if color1 is 255,255,0 and color2 is 0,255,255 the midpoint would be 122,255,122
+                    //The 25% point would be 255,319,64 which would scale to 204,255,51
+
+                    //The second blends colors better but would get dimmer in between
+                    //0 percent is 100% color1
+                    //100 percent is 100% color2
+                    //50 percent is 50% color1 + 50% color2
+                    //25 percent is 75% color1 + 25% color2
+
+                    //Currently the second one is the one used and it seems to work well enough
+                    Color RGBColor = new Color(0, 0, 0);
+                    Color RGBColor2 = new Color(0, 0, 0);
+
+                    try
+                    {
+                        if (RGB != null && RGB != "")
+                        {
+                            String[] RGBarr = RGB.Split(',');
+                            byte R = Convert.ToByte(RGBarr[0]);
+                            byte G = Convert.ToByte(RGBarr[1]);
+                            byte B = Convert.ToByte(RGBarr[2]);
+                            RGBColor = new Color(R, G, B);
+                        }
+
+                        if (RGB2 != null && RGB2 != "")
+                        {
+                            String[] RGBarr = RGB2.Split(',');
+                            byte R = Convert.ToByte(RGBarr[0]);
+                            byte G = Convert.ToByte(RGBarr[1]);
+                            byte B = Convert.ToByte(RGBarr[2]);
+                            RGBColor2 = new Color(R, G, B);
+                        }
+                        else
+                        {
+                            RGB2 = "0,0,0";
+                        }
+                    }
+                    catch
+                    {
+                        API.Log(API.LogType.Error, "RGB Value(s) are malformed, correct form is R,G,B");
+                        return;
+                    }
+
+                    Color blendedColor = new Color((byte)(RGBColor.R * (1.0 - percent) + RGBColor2.R * percent), (byte)(RGBColor.G * (1.0 - percent) + RGBColor2.G * percent), (byte)(RGBColor.B * (1.0 - percent) + RGBColor2.B * percent));
+                    currentColor = blendedColor.R.ToString() + "," + blendedColor.G.ToString() + "," + blendedColor.B.ToString();
+
+                    if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
+                    {
+                        //Uses a global array of LED colors. Since each side can be targeted independently it just updates its part of the array.
+                        //Supports targeting the all LEDs, Left side, Right side, or just the logo backlight and scrollwheel
+
+                        //Update just the extra stuff
+                        //Note we do this here for all to prevent duplicate code
+                        if (mouseTarget == null || mouseTarget.CompareTo("EXTRA") == 0 || mouseTarget.CompareTo("ALL") == 0 || mouseTarget == "")
+                        {
+                            mouseLEDColorArr[(int)Led.Backlight] = blendedColor;
+                            mouseLEDColorArr[(int)Led.Logo] = blendedColor;
+                            mouseLEDColorArr[(int)Led.ScrollWheel] = blendedColor;
+                        }
+                        //Color mouse region all the same color
+                        else if (colorAllLEDs)
+                        {
+                            //Color whole mouse same color
+                            if (mouseTarget == null || mouseTarget.CompareTo("ALL") == 0 || mouseTarget == "")
+                            {
+                                for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
+                                {
+                                    mouseLEDColorArr[i] = blendedColor;
+                                }
+                            }
+                            //Color left mouse region same color
+                            else if (mouseTarget.CompareTo("LEFT") == 0)
+                            {
+                                for (int i = (int)Led.Strip1; i <= (int)Led.Strip7; i++)
+                                {
+                                    mouseLEDColorArr[i] = blendedColor;
+                                }
+                            }
+                            //Color right mouse region same color
+                            else if (mouseTarget.CompareTo("RIGHT") == 0)
+                            {
+                                for (int i = (int)Led.Strip8; i <= (int)Led.Strip14; i++)
+                                {
+                                    mouseLEDColorArr[i] = blendedColor;
+                                }
+                            }
+                        }
+                        //Intelegent coloring based on percent
+                        //TODO make values inbetween light up next LED partially based on how close to value it is
+                        else
+                        {
+                            //Update both side based on this 
+                            if (mouseTarget == null || mouseTarget.CompareTo("ALL") == 0 || mouseTarget == "")
+                            {
+                                //+1 is so that we use the count of LEDs
+                                int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
+
+                                for (int i = (int)Led.Strip1; i <= (int)Led.Strip14; i++)
+                                {
+                                    //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
+
+                                    //Go through left side
+                                    if (i < midPoint + (int)Led.Strip1)
+                                    {
+                                        //Plus one so the top light is not missed
+                                        //Minus one so that it goes from bottom to top and not top to bottom
+                                        if (1 - (double)(i - (int)Led.Strip1 + 1) / midPoint < percent)
+                                        {
+                                            mouseLEDColorArr[i] = blendedColor;
+                                        }
+                                        else
+                                        {
+                                            mouseLEDColorArr[i] = new Color(0, 0, 0);
+                                        }
+                                    }
+                                    //Go through  right side
+                                    else
+                                    {
+                                        //Plus one so the top light is not missed
+                                        //Minus one so that it goes from bottom to top and not top to bottom
+                                        if (1 - (double)(i - (int)Led.Strip1 - midPoint + 1) / midPoint < percent)
+                                        {
+                                            mouseLEDColorArr[i] = blendedColor;
+                                        }
+                                        else
+                                        {
+                                            mouseLEDColorArr[i] = new Color(0, 0, 0);
+                                        }
+                                    }
+                                }
+                            }
+                            else if (mouseTarget.CompareTo("LEFT") == 0)
+                            {
+                                //+1 is so that we use the count of LEDs
+                                int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
+
+
+                                for (int i = (int)Led.Strip1; i <= (int)Led.Strip7; i++)
+                                {
+                                    //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
+
+                                    //Go through left side
+                                    if (i < midPoint + (int)Led.Strip1)
+                                    {
+                                        //Plus one so the top light is not missed
+                                        //Minus one so that it goes from bottom to top and not top to bottom
+                                        if (1 - (double)(i - (int)Led.Strip1 + 1) / midPoint < percent)
+                                        {
+                                            mouseLEDColorArr[i] = blendedColor;
+                                        }
+                                        else
+                                        {
+                                            mouseLEDColorArr[i] = new Color(0, 0, 0);
+                                        }
+                                    }
+                                }
+                            }
+                            else if (mouseTarget.CompareTo("RIGHT") == 0)
+                            {
+                                //+1 is so that we use the count of LEDs
+                                int midPoint = ((int)Led.Strip14 - (int)Led.Strip1 + 1) / 2;
+
+
+                                for (int i = (int)Led.Strip8; i <= (int)Led.Strip14; i++)
+                                {
+                                    //LED Order from bottom to top is 8 through 1 on the left and 9 through 14 on the right
+
+                                    //Go through right side
+                                    if (i >= midPoint + (int)Led.Strip1)
+                                    {
+                                        //Plus one so the top light is not missed
+                                        //Minus one so that it goes from bottom to top and not top to bottom
+                                        if (1 - (double)(i - (int)Led.Strip1 - midPoint + 1) / midPoint < percent)
+                                        {
+                                            mouseLEDColorArr[i] = blendedColor;
+                                        }
+                                        else
+                                        {
+                                            mouseLEDColorArr[i] = new Color(0, 0, 0);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        //Update mouse to current colors set
+                        Corale.Colore.Razer.Mouse.Effects.Custom myGradientEffect = new Corale.Colore.Razer.Mouse.Effects.Custom(mouseLEDColorArr);
+                        Mouse.Instance.SetCustom(myGradientEffect);
+                    }
+                    else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
+                    {
+                        Headset.Instance.SetStatic(new Corale.Colore.Razer.Headset.Effects.Static(blendedColor));
                     }
                     else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
                     {
                         if (keyboardTarget == null || keyboardTarget == "" || keyboardTarget.CompareTo("ALL") == 0)
                         {
-                            Keyboard.Instance.SetKeys(mainKeylist, RGBColor);
+                            Keyboard.Instance.SetAll(blendedColor);
+                            //Keyboard.Instance.SetKeys(mainKeylist, blendedColor);
+                        }
+                        else if (keyboardTarget.CompareTo(keyboardGroups.CUSTOM.ToString()) == 0)
+                        {
+                            API.Log(API.LogType.Notice, "Custom keygroups not yet supported");
                         }
                         else
                         {
-                            List<Key> keylistToUpdate = new List<Key>();
+                            int index = -1;
 
-                            //TODO index key groups in double demensional array to make this code cleaner
-                            if (keyboardTarget.CompareTo(keyboardGroups.MAIN.ToString()) == 0)
+                            try
                             {
-                                keylistToUpdate = mainKeylist;
+                                keyboardGroups groupLocation = (keyboardGroups)Enum.Parse(typeof(keyboardGroups), keyboardTarget);
+                                index = (int)groupLocation;
                             }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.MAINNOWASD.ToString()) == 0)
+                            catch (ArgumentException)
                             {
-                                keylistToUpdate = mainNoWASDKeylist;
+                                API.Log(API.LogType.Notice, "Keygroup " + keyboardTarget + "unrecognized, assuming coloring all keys");
                             }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.WASD.ToString()) == 0)
+
+                            if (index != -1)
                             {
-                                keylistToUpdate = wasdKeylist;
+                                Keyboard.Instance.SetKeys(keylistArr[index], blendedColor);
                             }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.NUMBERS.ToString()) == 0)
+                            else
                             {
-                                keylistToUpdate = numberKeylist;
+                                Keyboard.Instance.SetAll(blendedColor);
                             }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.QWER.ToString()) == 0)
+                        }
+                    }
+                }
+                else if (RGB != null && RGB != "")
+                {
+                    Color RGBColor = new Color(0, 0, 0);
+                    Color RGBColor2 = new Color(0, 0, 0);
+
+                    try
+                    {
+                        {
+                            String[] RGBarr = RGB.Split(',');
+                            byte R = Convert.ToByte(RGBarr[0]);
+                            byte G = Convert.ToByte(RGBarr[1]);
+                            byte B = Convert.ToByte(RGBarr[2]);
+                            RGBColor = new Color(R, G, B);
+                        }
+
+                        if (RGB2 != null && RGB2 != "")
+                        {
+                            String[] RGBarr = RGB2.Split(',');
+                            byte R = Convert.ToByte(RGBarr[0]);
+                            byte G = Convert.ToByte(RGBarr[1]);
+                            byte B = Convert.ToByte(RGBarr[2]);
+                            RGBColor2 = new Color(R, G, B);
+                        }
+                    }
+                    catch
+                    {
+                        API.Log(API.LogType.Error, "RGB Value(s) are malformed, correct form is R,G,B");
+                        return;
+                    }
+
+                    if (effect.CompareTo(effectTypes.STATIC.ToString()) == 0)
+                    {
+                        currentColor = RGBColor.R.ToString() + "," + RGBColor.G.ToString() + "," + RGBColor.B.ToString();
+                        if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
+                        {
+                            for (int i = 0; i < mouseLEDColorArr.Length; i++)
                             {
-                                keylistToUpdate = qwerKeylist;
+                                mouseLEDColorArr[i] = RGBColor;
                             }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.ASDF.ToString()) == 0)
+                            Corale.Colore.Razer.Mouse.Effects.Custom myStaticEffect = new Corale.Colore.Razer.Mouse.Effects.Custom(mouseLEDColorArr);
+                            Mouse.Instance.SetCustom(myStaticEffect);
+                        }
+                        else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
+                        {
+                            Headset.Instance.SetStatic(new Corale.Colore.Razer.Headset.Effects.Static(RGBColor));
+                        }
+                        else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
+                        {
+                            if (keyboardTarget == null || keyboardTarget == "" || keyboardTarget.CompareTo("ALL") == 0)
                             {
-                                keylistToUpdate = asdfKeylist;
-                            }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.ZXCV.ToString()) == 0)
-                            {
-                                keylistToUpdate = zxcvKeylist;
-                            }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.CTRL.ToString()) == 0)
-                            {
-                                keylistToUpdate = ctrlKeylist;
-                            }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.NUMPAD.ToString()) == 0)
-                            {
-                                keylistToUpdate = numpadKeylist;
-                            }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.ARROWS.ToString()) == 0)
-                            {
-                                keylistToUpdate = arrowsKeylist;
-                            }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.FUNCTION.ToString()) == 0)
-                            {
-                                keylistToUpdate = functionKeylist;
-                            }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.FUNCTIONNOESCAPE.ToString()) == 0)
-                            {
-                                keylistToUpdate = functionNoEscapeKeylist;
-                            }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.SYSTEM.ToString()) == 0)
-                            {
-                                keylistToUpdate = systemKeylist;
-                            }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.EXTRAS.ToString()) == 0)
-                            {
-                                keylistToUpdate = extrasKeylist;
-                            }
-                            else if (keyboardTarget.CompareTo(keyboardGroups.LOGO.ToString()) == 0)
-                            {
-                                keylistToUpdate = logoKeylist;
+                                Keyboard.Instance.SetAll(RGBColor);
+                                //Keyboard.Instance.SetKeys(mainKeylist, blendedColor);
                             }
                             else if (keyboardTarget.CompareTo(keyboardGroups.CUSTOM.ToString()) == 0)
                             {
                                 API.Log(API.LogType.Notice, "Custom keygroups not yet supported");
                             }
+                            else
+                            {
+                                int index = -1;
 
-                            Keyboard.Instance.SetKeys(keylistToUpdate, RGBColor);
+                                try
+                                {
+                                    keyboardGroups groupLocation = (keyboardGroups)Enum.Parse(typeof(keyboardGroups), keyboardTarget);
+                                    index = (int)groupLocation;
+                                }
+                                catch (ArgumentException)
+                                {
+                                    API.Log(API.LogType.Notice, "Keygroup " + keyboardTarget + "unrecognized, assuming coloring all keys");
+                                }
+
+                                //if (index == 0)
+                                //{
+                                //    //For some odd reason Visual studio keeps telling me this index is always 0 when it is not, temp fix for debuging till I feel like rebooting. Edit: Still doing it wtf VS2015
+                                //    Console.WriteLine("Index is actually 0, Hey VS2015 ° ͜ʖ͡° ╭∩╮");
+                                //}
+
+                                if (index != -1)
+                                {
+                                    Keyboard.Instance.SetKeys(keylistArr[index], RGBColor);
+                                }
+                                else
+                                {
+                                    Keyboard.Instance.SetAll(RGBColor);
+                                }
+                            }
+                        }
+                    }
+                    else if (effect.CompareTo(effectTypes.BREATHING.ToString()) == 0)
+                    {
+                        currentColor = RGBColor.R.ToString() + "," + RGBColor.G.ToString() + "," + RGBColor.B.ToString();
+                        if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
+                        {
+                            if (RGB2 == null || RGB2 == "")
+                            {
+                                Mouse.Instance.SetBreathing(new Corale.Colore.Razer.Mouse.Effects.Breathing(Led.All, RGBColor));
+                            }
+                            else
+                            {
+                                currentColor += ":" + RGBColor2.R.ToString() + "," + RGBColor2.G.ToString() + "," + RGBColor2.B.ToString();
+                                Mouse.Instance.SetBreathing(new Corale.Colore.Razer.Mouse.Effects.Breathing(Led.All, RGBColor, RGBColor2));
+                            }
+                        }
+                        else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
+                        {
+                            Headset.Instance.SetBreathing(new Corale.Colore.Razer.Headset.Effects.Breathing(RGBColor));
+                        }
+                        else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
+                        {
+                            if (RGB2 == null || RGB2 == "")
+                            {
+                                //For some odd reason keyboard breathing effect only takes two colors
+                                Keyboard.Instance.SetBreathing(new Corale.Colore.Razer.Keyboard.Effects.Breathing(RGBColor, RGBColor));
+                            }
+                            else
+                            {
+                                currentColor += ":" + RGBColor2.R.ToString() + "," + RGBColor2.G.ToString() + "," + RGBColor2.B.ToString();
+                                Keyboard.Instance.SetBreathing(new Corale.Colore.Razer.Keyboard.Effects.Breathing(RGBColor, RGBColor2));
+                            }
+                        }
+                    }
+                    //else if (effect.CompareTo(effectTypes.BLINKING.ToString()) == 0)
+                    //{
+                    //    if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
+                    //    {
+                    //        Mouse.Instance.SetBlinking(new Blinking(Led.All, RGBColor));
+                    //    }
+                    //}
+                    else if (effect.CompareTo(effectTypes.REACTIVE.ToString()) == 0)
+                    {
+                        currentColor = RGBColor.R.ToString() + "," + RGBColor.G.ToString() + "," + RGBColor.B.ToString();
+                        //TODO Add user defined duration
+                        if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
+                        {
+                            Mouse.Instance.SetReactive(new Corale.Colore.Razer.Mouse.Effects.Reactive(Led.All, Corale.Colore.Razer.Mouse.Effects.Duration.Long, RGBColor));
+                        }
+                        else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
+                        {
+                            Keyboard.Instance.SetReactive(new Corale.Colore.Razer.Keyboard.Effects.Reactive(RGBColor, Corale.Colore.Razer.Keyboard.Effects.Duration.Long));
                         }
                     }
                 }
-                else if (effect.CompareTo(effectTypes.BREATHING.ToString()) == 0)
+            }
+            catch (Exception e)
+            {
+                lock(errorOutputLock)
                 {
-                    currentColor = RGBColor.R.ToString() + "," + RGBColor.G.ToString() + "," + RGBColor.B.ToString();
-                    if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
-                    {
-                        if (RGB2 == null || RGB2 == "")
-                        {
-                            Mouse.Instance.SetBreathing(new Corale.Colore.Razer.Mouse.Effects.Breathing(Led.All, RGBColor));
-                        }
-                        else
-                        {
-                            currentColor += ":" + RGBColor2.R.ToString() + "," + RGBColor2.G.ToString() + "," + RGBColor2.B.ToString();
-                            Mouse.Instance.SetBreathing(new Corale.Colore.Razer.Mouse.Effects.Breathing(Led.All, RGBColor, RGBColor2));
-                        }
-                    }
-                    else if (device.CompareTo(deviceTypes.HEADSET.ToString()) == 0)
-                    {
-                        Headset.Instance.SetBreathing(new Corale.Colore.Razer.Headset.Effects.Breathing(RGBColor));
-                    }
-                    else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
-                    {
-                        if (RGB2 == null || RGB2 == "")
-                        {
-                            //For some odd reason keyboard breathing effect only takes two colors
-                            Keyboard.Instance.SetBreathing(new Corale.Colore.Razer.Keyboard.Effects.Breathing(RGBColor, RGBColor));
-                        }
-                        else
-                        {
-                            currentColor += ":" + RGBColor2.R.ToString() + "," + RGBColor2.G.ToString() + "," + RGBColor2.B.ToString();
-                            Keyboard.Instance.SetBreathing(new Corale.Colore.Razer.Keyboard.Effects.Breathing(RGBColor, RGBColor2));
-                        }
-                    }
-                }
-                //else if (effect.CompareTo(effectTypes.BLINKING.ToString()) == 0)
-                //{
-                //    if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
-                //    {
-                //        Mouse.Instance.SetBlinking(new Blinking(Led.All, RGBColor));
-                //    }
-                //}
-                else if (effect.CompareTo(effectTypes.REACTIVE.ToString()) == 0)
-                {
-                    currentColor = RGBColor.R.ToString() + "," + RGBColor.G.ToString() + "," + RGBColor.B.ToString();
-                    //TODO Add user defined duration
-                    if (device.CompareTo(deviceTypes.MOUSE.ToString()) == 0)
-                    {
-                        Mouse.Instance.SetReactive(new Corale.Colore.Razer.Mouse.Effects.Reactive(Led.All, Corale.Colore.Razer.Mouse.Effects.Duration.Long, RGBColor));
-                    }
-                    else if (device.CompareTo(deviceTypes.KEYBOARD.ToString()) == 0)
-                    {
-                        Keyboard.Instance.SetReactive(new Corale.Colore.Razer.Keyboard.Effects.Reactive(RGBColor, Corale.Colore.Razer.Keyboard.Effects.Duration.Long));
-                    }
+                    API.Log(API.LogType.Error, "An error occured when setting a new effect, this can happen sometimes when refreshing");
+
+                    API.Log(API.LogType.Debug, "RGBController.dll Error:" + e.Message + " doing:" + RGB + "," + RGB2 + "," + effect + "," + device + "," + percent + "," + mouseTarget + "," + keyboardTarget);
+                    API.Log(API.LogType.Debug, "RGBController.dll Stacktrace:" + e.StackTrace);
+                    API.Log(API.LogType.Debug, "RGBController.dll Data:" + e.Data);
+                    API.Log(API.LogType.Debug, "RGBController.dll Error:" + e.InnerException.Message);
                 }
             }
         }
 
         internal Measure()
         {
-
+            if(!Chroma.SdkAvailable)
+            {
+                API.Log(API.LogType.Warning, "Cannot find chroma SDK, please make sure it is installed");
+            }
         }
 
         internal void Reload(Rainmeter.API api, ref double maxValue)
@@ -786,6 +726,11 @@ namespace PluginRGBController
         [DllExport]
         public static void Initialize(ref IntPtr data, IntPtr rm)
         {
+            if(Measure.numOfInstances == 0 && Measure.mayNeedToRedoEffect == true)
+            {
+                //Chroma.Instance.Initialize();
+            }
+
             Measure.numOfInstances++;
 
             data = GCHandle.ToIntPtr(GCHandle.Alloc(new Measure()));
@@ -798,12 +743,19 @@ namespace PluginRGBController
 
             if(Measure.numOfInstances == 0)
             {
-                Chroma.Instance.Uninitialize();
+                try
+                {
+                    //Chroma.Instance.Uninitialize();
+                }
+                catch
+                {
+                    API.Log(API.LogType.Error, "Unable to uninitalize chroma control, stop refreshing your only chroma skin very quickly repeatedly");
+                }
                 //Im sorry
-                //TODO Find a way to fix uninit taking too long that it uninits my new info
+                //TODO Find a way to fix uninit taking too long that it uninits my new info Update: This is kinda better but still wait based
                 //Possible workarounds detect if new color may be needed and send it again after 1000ms (I still dislike it as it has the potential to fail)
                 //System.Threading.Thread.Sleep(1000);
-                Measure.mayNeedToRedoEffect = true;
+                //Measure.mayNeedToRedoEffect = true;
             }
 
             GCHandle.FromIntPtr(data).Free();
