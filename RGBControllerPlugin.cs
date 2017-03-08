@@ -13,7 +13,9 @@ using Corale.Colore.Razer.Headset.Effects;
 
 using Corale.Colore.Razer.Keyboard;
 using Corale.Colore.Razer.Keyboard.Effects;
+
 using System.Threading;
+using System.Diagnostics;
 
 namespace PluginRGBController
 {
@@ -591,45 +593,45 @@ namespace PluginRGBController
                     percent = 100;
                 }
             }
-            
+
             //Check if anything has changed since last update
-            if (lastUpdate != RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent)
+            if (!mayNeedToRedoEffect)
             {
-                UpdateColor(RGB, RGB2, effect, device, percent);
-                lastUpdate = RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent;
+                if (lastUpdate != RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent)
+                {
+                    UpdateColor(RGB, RGB2, effect, device, percent);
+                    lastUpdate = RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent;
+                }
+            }
+            else
+            {
+                //Timing fix hack v3.0 now less error prone.
+                //Timing fix hack v4.0 will remove the 200ms delay by adding an init check in RGB and telling update to send it on next pass
+                //Or I will bypass this more by doing the threading in finalize and stop it if it is initialized right after.
+                //The mythical timing fix hack v13.37 will somehow figure out if I even need to deinit and solve world hunger
+                new Thread(() =>
+                {
+                    Thread.Sleep(1000);
+
+                    instancesRedone++;
+                    if (instancesRedone == 1)
+                    {
+                        Chroma.Instance.Initialize();
+                    }
+                    Thread.Sleep(200);
+                    UpdateColor(RGB, RGB2, effect, device, percent);
+
+                    if (instancesRedone >= numOfInstances)
+                    {
+                        mayNeedToRedoEffect = false;
+                    }
+
+                }).Start();
             }
         }
 
         internal double Update()
         {
-            //API.Log(API.LogType.Notice, Corale.Colore.Core.Chroma.Instance.ApplicationState());
-            //API.Log(API.LogType.Notice, Corale.Colore.Events.ApplicationStateEventArgs);
-            //API.Log(API.LogType.Notice, "State:" + Corale.Colore.Core.Chroma.Instance.Initialized.ToString());
-
-            //TODO figure out how to fix lighting not coming back/coming back dim or incorrect after if device lights are set to turn of when display is turned off
-            //if(!Chroma.Instance.Initialized)
-            //{
-            //    Chroma.Instance.Initialize();
-            //}
-
-            if(mayNeedToRedoEffect)
-            {
-                instancesRedone++;
-
-                //Run new thread where after a second the effect is updated again
-                //May need to increase to more on old machines
-                new Thread(() =>
-                {
-                    Thread.Sleep(1000);
-                    UpdateColor(RGB, RGB2, effect, device, percent);
-                }).Start();
-
-                if (instancesRedone >= numOfInstances)
-                {
-                    mayNeedToRedoEffect = false;
-                }
-            }
-
             return 0.0;
         }
 
@@ -728,10 +730,11 @@ namespace PluginRGBController
         [DllExport]
         public static void Initialize(ref IntPtr data, IntPtr rm)
         {
-            if(Measure.numOfInstances == 0 && Measure.mayNeedToRedoEffect == true)
-            {
-                Chroma.Instance.Initialize();
-            }
+            Debug.WriteLine("Initializing measure");
+            //if(Measure.numOfInstances == 0 && Measure.mayNeedToRedoEffect == true)
+            //{
+            //    Chroma.Instance.Initialize();
+            //}
 
             Measure.numOfInstances++;
 
@@ -741,6 +744,7 @@ namespace PluginRGBController
         [DllExport]
         public static void Finalize(IntPtr data)
         {
+            Debug.WriteLine("Deinitializing measure");
             Measure.numOfInstances--;
 
             if(Measure.numOfInstances == 0)
@@ -756,7 +760,7 @@ namespace PluginRGBController
                 //Im sorry
                 //TODO Find a way to fix uninit taking too long that it uninits my new info Update: This is kinda better but still wait based
                 //Possible workarounds detect if new color may be needed and send it again after 1000ms (I still dislike it as it has the potential to fail)
-                //System.Threading.Thread.Sleep(1000);
+                System.Threading.Thread.Sleep(1000);
                 Measure.mayNeedToRedoEffect = true;
             }
 
@@ -772,6 +776,7 @@ namespace PluginRGBController
         [DllExport]
         public static void Reload(IntPtr data, IntPtr rm, ref double maxValue)
         {
+            Debug.WriteLine("Reloading measure");
             Measure measure = (Measure)GCHandle.FromIntPtr(data).Target;
             measure.Reload(new Rainmeter.API(rm), ref maxValue);
         }
