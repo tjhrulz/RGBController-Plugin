@@ -594,39 +594,10 @@ namespace PluginRGBController
                 }
             }
 
-            //Check if anything has changed since last update
-            if (!mayNeedToRedoEffect)
+            if (lastUpdate != RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent)
             {
-                if (lastUpdate != RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent)
-                {
-                    UpdateColor(RGB, RGB2, effect, device, percent);
-                    lastUpdate = RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent;
-                }
-            }
-            else
-            {
-                //Timing fix hack v3.0 now less error prone.
-                //Timing fix hack v4.0 will remove the 200ms delay by adding an init check in RGB and telling update to send it on next pass
-                //Or I will bypass this more by doing the threading in finalize and stop it if it is initialized right after.
-                //The mythical timing fix hack v13.37 will somehow figure out if I even need to deinit and solve world hunger
-                new Thread(() =>
-                {
-                    Thread.Sleep(1000);
-
-                    instancesRedone++;
-                    if (instancesRedone == 1)
-                    {
-                        Chroma.Instance.Initialize();
-                    }
-                    Thread.Sleep(200);
-                    UpdateColor(RGB, RGB2, effect, device, percent);
-
-                    if (instancesRedone >= numOfInstances)
-                    {
-                        mayNeedToRedoEffect = false;
-                    }
-
-                }).Start();
+                UpdateColor(RGB, RGB2, effect, device, percent);
+                lastUpdate = RGB + ":" + RGB2 + ":" + effect + ":" + device + ":" + percent;
             }
         }
 
@@ -730,13 +701,25 @@ namespace PluginRGBController
         [DllExport]
         public static void Initialize(ref IntPtr data, IntPtr rm)
         {
-            Debug.WriteLine("Initializing measure");
-            //if(Measure.numOfInstances == 0 && Measure.mayNeedToRedoEffect == true)
+            //*******************************************************************
+            //Beter init and uninit code that causes rainmeter to crash on unload
+            //*******************************************************************
+            //if (deinitThread != null)
             //{
-            //    Chroma.Instance.Initialize();
+            //    if (deinitThread.ThreadState == System.Threading.ThreadState.WaitSleepJoin)
+            //    {
+            //        deinitThread.Abort();
+            //    }
+            //    else if(deinitThread.ThreadState == System.Threading.ThreadState.Running)
+            //    {
+            //        Thread.Sleep(1000);
+            //        Chroma.Instance.Initialize();
+            //    }
+            //    else if (deinitThread.ThreadState != System.Threading.ThreadState.Aborted && deinitThread.ThreadState != System.Threading.ThreadState.AbortRequested)
+            //    {
+            //        Debug.WriteLine("Unsure what to do with thread" + deinitThread.ThreadState);
+            //    }
             //}
-
-            Measure.numOfInstances++;
 
             data = GCHandle.ToIntPtr(GCHandle.Alloc(new Measure()));
         }
@@ -744,25 +727,19 @@ namespace PluginRGBController
         [DllExport]
         public static void Finalize(IntPtr data)
         {
-            Debug.WriteLine("Deinitializing measure");
-            Measure.numOfInstances--;
-
-            if(Measure.numOfInstances == 0)
-            {
-                try
-                {
-                    Chroma.Instance.Uninitialize();
-                }
-                catch
-                {
-                    API.Log(API.LogType.Error, "Unable to uninitalize chroma control, stop refreshing your only chroma skin very quickly repeatedly");
-                }
-                //Im sorry
-                //TODO Find a way to fix uninit taking too long that it uninits my new info Update: This is kinda better but still wait based
-                //Possible workarounds detect if new color may be needed and send it again after 1000ms (I still dislike it as it has the potential to fail)
-                System.Threading.Thread.Sleep(1000);
-                Measure.mayNeedToRedoEffect = true;
-            }
+            //*******************************************************************
+            //Beter init and uninit code that causes rainmeter to crash on unload
+            //*******************************************************************
+            //deinitThread = new Thread(() =>
+            //{
+            //    Thread.Sleep(500);
+            //    
+            //    //For some reason this does not want to delete effects sometimes
+            //    Chroma.Instance.Uninitialize();
+            //
+            //});
+            //deinitThread.Name = "ChromaDeinitializer";
+            //deinitThread.Start();
 
             GCHandle.FromIntPtr(data).Free();
 
@@ -776,7 +753,6 @@ namespace PluginRGBController
         [DllExport]
         public static void Reload(IntPtr data, IntPtr rm, ref double maxValue)
         {
-            Debug.WriteLine("Reloading measure");
             Measure measure = (Measure)GCHandle.FromIntPtr(data).Target;
             measure.Reload(new Rainmeter.API(rm), ref maxValue);
         }
