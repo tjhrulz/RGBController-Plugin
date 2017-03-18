@@ -85,6 +85,10 @@
       <HintPath>packages\Colore.5.1.0\lib\net35\Corale.Colore.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="CUE.NET, Version=1.1.2.1, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>packages\CUE.NET.1.1.2.1\lib\net45\CUE.NET.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Xml" />
   </ItemGroup>
@@ -118,6 +122,8 @@
     </PropertyGroup>
     <Error Condition="!Exists('packages\MSBuild.ILMerge.Task.1.0.5\build\MSBuild.ILMerge.Task.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\MSBuild.ILMerge.Task.1.0.5\build\MSBuild.ILMerge.Task.props'))" />
     <Error Condition="!Exists('packages\MSBuild.ILMerge.Task.1.0.5\build\MSBuild.ILMerge.Task.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\MSBuild.ILMerge.Task.1.0.5\build\MSBuild.ILMerge.Task.targets'))" />
+    <Error Condition="!Exists('packages\CUE.NET.1.1.2.1\build\net45\CUE.NET.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\CUE.NET.1.1.2.1\build\net45\CUE.NET.targets'))" />
   </Target>
   <Import Project="packages\MSBuild.ILMerge.Task.1.0.5\build\MSBuild.ILMerge.Task.targets" Condition="Exists('packages\MSBuild.ILMerge.Task.1.0.5\build\MSBuild.ILMerge.Task.targets')" />
+  <Import Project="packages\CUE.NET.1.1.2.1\build\net45\CUE.NET.targets" Condition="Exists('packages\CUE.NET.1.1.2.1\build\net45\CUE.NET.targets')" />
 </Project>
